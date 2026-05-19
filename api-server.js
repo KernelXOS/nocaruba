@@ -1,5 +1,5 @@
-/**
- * Proxy server — Aruba Central API
+﻿/**
+ * Proxy server â€” Aruba Central API
  * Endpoints reales confirmados para la cuenta PUCESE (uswest4).
  */
 
@@ -15,7 +15,7 @@ const BASE = process.env.ARUBA_BASE_URL || 'https://apigw-uswest4.central.aruban
 app.use(cors({ origin: ['http://localhost:3000', 'http://127.0.0.1:3000'] }));
 app.use(express.json());
 
-/* ── Token con auto-refresh ───────────────────────────────── */
+/* â”€â”€ Token con auto-refresh â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const token = {
   access:    process.env.ARUBA_ACCESS_TOKEN  || '',
   refresh:   process.env.ARUBA_REFRESH_TOKEN || '',
@@ -41,13 +41,13 @@ async function getToken() {
       token.access    = data.access_token;
       token.refresh   = data.refresh_token || token.refresh;
       token.expiresAt = Date.now() + data.expires_in * 1000;
-      console.log('[AUTH] Token renovado — vence en', data.expires_in, 'seg');
+      console.log('[AUTH] Token renovado â€” vence en', data.expires_in, 'seg');
     }
   } catch (e) { console.error('[AUTH] Refresh error:', e.message); }
   return token.access;
 }
 
-/* ── Fetch helper ─────────────────────────────────────────── */
+/* â”€â”€ Fetch helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 async function arubaGet(path, params = {}) {
   const tk  = await getToken();
   const qs  = new URLSearchParams({ limit: 1000, ...params }).toString();
@@ -59,7 +59,7 @@ async function arubaGet(path, params = {}) {
   return JSON.parse(text);
 }
 
-/* Obtiene TODOS los elementos paginando automáticamente */
+/* Obtiene TODOS los elementos paginando automÃ¡ticamente */
 async function arubaGetAll(path, listKey, extraParams = {}) {
   const PAGE = 1000;
   let offset = 0, all = [], total = null;
@@ -70,7 +70,7 @@ async function arubaGetAll(path, listKey, extraParams = {}) {
     if (total === null) total = data.count ?? data.total ?? items.length;
     offset += PAGE;
   } while (offset < (total ?? 0) && all.length < (total ?? 0));
-  console.log(`[ALL] ${path} → ${all.length}/${total} dispositivos`);
+  console.log(`[ALL] ${path} â†’ ${all.length}/${total} dispositivos`);
   return all;
 }
 
@@ -86,16 +86,16 @@ async function arubaPost(path, body = {}) {
   return JSON.parse(text);
 }
 
-/* ── Mappers ──────────────────────────────────────────────── */
-/* Extrae campus y ubicación del nombre del AP.
+/* â”€â”€ Mappers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* Extrae campus y ubicaciÃ³n del nombre del AP.
    Formato: "Campus Central - Biblioteca 3" o "Tachina - Aula 206"
-   El campo `site` viene vacío en esta cuenta; se parsea desde el nombre. */
+   El campo `site` viene vacÃ­o en esta cuenta; se parsea desde el nombre. */
 function parseLocation(name, site, groupName) {
   if (site && site.trim()) return { campus: site, location: '' };
   const parts = (name || '').split(' - ');
   if (parts.length >= 2) {
     const campus   = parts[0].trim();
-    const location = parts.slice(1).join(' · ').trim();
+    const location = parts.slice(1).join(' Â· ').trim();
     return { campus, location };
   }
   // Fallback: usar el grupo
@@ -112,13 +112,13 @@ function mapAP(ap, clientsPerSerial = {}) {
   const clients = ap.client_count ?? clientsPerSerial[ap.serial] ?? 0;
 
   // Temperatura/CPU estimados desde carga de clientes.
-  // Aruba Central no expone estas métricas via API pública.
+  // Aruba Central no expone estas mÃ©tricas via API pÃºblica.
   const loadFactor = Math.min(1, clients / 50);
   const tempEst = status === 'offline' ? 0 : Math.round(40 + loadFactor * 18);
   const cpuEst  = status === 'offline' ? 0 : Math.round(12 + loadFactor * 60);
   const memEst  = status === 'offline' ? 0 : Math.round(28 + loadFactor * 38);
 
-  // Radios — band 0 = 2.4GHz, band 1 = 5GHz, band 2 = 6GHz
+  // Radios â€” band 0 = 2.4GHz, band 1 = 5GHz, band 2 = 6GHz
   const r24 = ap.radios?.find(r => r.band === 0 || r.index === 0) || {};
   const r5  = ap.radios?.find(r => r.band === 1 || r.index === 1) || {};
 
@@ -130,10 +130,10 @@ function mapAP(ap, clientsPerSerial = {}) {
     name:          apName,
     model:         ap.model ? `Aruba ${ap.model}` : 'Aruba AP',
     building:      campus,
-    floor:         location                   || ap.labels?.[0] || '—',
+    floor:         location                   || ap.labels?.[0] || 'â€”',
     status,
-    ip:            ap.ip_address              || '—',
-    macAddress:    ap.macaddr                 || '—',
+    ip:            ap.ip_address              || 'â€”',
+    macAddress:    ap.macaddr                 || 'â€”',
     uptime:        ap.uptime                  || 0,
     clients,
     ssids:         ap.ssid_list               || [],
@@ -152,15 +152,15 @@ function mapAP(ap, clientsPerSerial = {}) {
     noise5:        r5.noise                   || 0,
     utilization5:  r5.utilization             || 0,
     bandwidth5:    r5.bandwidth               || 0,
-    // Tráfico y señal
+    // TrÃ¡fico y seÃ±al
     rxBps:         (ap.usage_down || ap.tx_bytes || 0),
     txBps:         (ap.usage_up   || ap.rx_bytes || 0),
     signalStrength: ap.signal_db              || 0,
     lastSeen:      ap.last_modified
                      ? new Date(ap.last_modified * 1000).toISOString()
                      : ap.last_seen || new Date().toISOString(),
-    group:         ap.group_name              || '—',
-    firmware:      ap.firmware_version        || '—',
+    group:         ap.group_name              || 'â€”',
+    firmware:      ap.firmware_version        || 'â€”',
     swarmName:     ap.swarm_name              || '',
     downReason:    ap.down_reason             || '',
     lldpNeighbor:  ap.neighbor_dev           || ap.lldp_neighbor || '',
@@ -201,9 +201,9 @@ function mapSwitch(sw, ports = []) {
     model:       sw.model            || 'Aruba Switch',
     building:    sw.site             || sw.group_name || 'Sin sitio',
     status,
-    ip:          sw.ip_address       || '—',
+    ip:          sw.ip_address       || 'â€”',
     uptime:      sw.uptime           || 0,
-    firmware:    sw.firmware_version || '—',
+    firmware:    sw.firmware_version || 'â€”',
     temperature: sw.temperature      || 0,
     cpuUsage:    sw.cpu_utilization  || 0,
     memUsage:    sw.mem_total > 0    ? Math.round(((sw.mem_total - (sw.mem_free || 0)) / sw.mem_total) * 100) : 0,
@@ -226,11 +226,11 @@ function mapGateway(gw) {
     model:      gw.model           || 'Aruba Gateway',
     building:   gw.site            || gw.group_name || 'Sin sitio',
     status,
-    ip:         gw.ip_address      || '—',
-    macAddress: gw.mac_address     || gw.macaddr || '—',
+    ip:         gw.ip_address      || 'â€”',
+    macAddress: gw.mac_address     || gw.macaddr || 'â€”',
     uptime:     gw.uptime          || 0,
-    firmware:   gw.firmware_version || '—',
-    group:      gw.group_name      || '—',
+    firmware:   gw.firmware_version || 'â€”',
+    group:      gw.group_name      || 'â€”',
     cpuUsage:   gw.cpu_utilization || 0,
     memUsage:   mem,
     tunnels:    gw.num_tunnels     || 0,
@@ -247,11 +247,11 @@ function mapClient(c) {
   return {
     mac:          c.macaddr              || '',
     hostname:     c.name || c.hostname   || c.macaddr || 'Desconocido',
-    ip:           c.ip_address           || '—',
+    ip:           c.ip_address           || 'â€”',
     type:         'wireless',
-    ap:           c.associated_device_name || c.associated_device || '—',
+    ap:           c.associated_device_name || c.associated_device || 'â€”',
     apSerial:     c.associated_device    || undefined,
-    ssid:         c.network             || '—',
+    ssid:         c.network             || 'â€”',
     band,
     signal:       c.signal_db           || undefined,
     speed:        (c.speed || 0) * 1_000_000,
@@ -261,10 +261,10 @@ function mapClient(c) {
     connectedAt:  c.last_connection_time
                     ? new Date(c.last_connection_time).toISOString()
                     : new Date().toISOString(),
-    building:     c.site || c.group_name || '—',
+    building:     c.site || c.group_name || 'â€”',
     health:       c.health              || 0,
-    os:           c.os_type             || '—',
-    manufacturer: c.manufacturer        || '—',
+    os:           c.os_type             || 'â€”',
+    manufacturer: c.manufacturer        || 'â€”',
   };
 }
 
@@ -277,9 +277,9 @@ function mapNotification(n) {
     id:           n.id           || String(n.nid),
     severity:     sev,
     category:     n.type         || 'Sistema',
-    device:       n.device_id    || n.details?.serial || '—',
+    device:       n.device_id    || n.details?.serial || 'â€”',
     message:      n.description  || n.type || 'Evento de red',
-    detail:       n.details?.params?.join(' · ') || undefined,
+    detail:       n.details?.params?.join(' Â· ') || undefined,
     timestamp:    n.created_timestamp
                     ? new Date(n.created_timestamp * 1000).toISOString()
                     : new Date(n.timestamp * 1000).toISOString(),
@@ -288,7 +288,7 @@ function mapNotification(n) {
   };
 }
 
-/* ── CSV Fallback (datos reales cuando el token está caducado) ── */
+/* â”€â”€ CSV Fallback (datos reales cuando el token estÃ¡ caducado) â”€â”€ */
 const CSV_AP_PATH    = 'C:/Users/grego/Desktop/DATA/export_ap_list_1779216701972.csv';
 const CSV_RADIO_PATH = 'C:/Users/grego/Desktop/DATA/export_radio_list_1779216714476.csv';
 
@@ -359,10 +359,10 @@ function mapAPFromCSV(row, radioMap = {}) {
     name,
     model:         row['MODEL'] ? `Aruba ${row['MODEL']}` : 'Aruba AP',
     building:      campus,
-    floor:         location                || '—',
+    floor:         location                || 'â€”',
     status,
-    ip:            row['IP ADDRESS']       || '—',
-    macAddress:    row['MAC']              || '—',
+    ip:            row['IP ADDRESS']       || 'â€”',
+    macAddress:    row['MAC']              || 'â€”',
     uptime:        parseUptimeSeconds(row['UPTIME']),
     clients,
     ssids:         [],
@@ -383,8 +383,8 @@ function mapAPFromCSV(row, radioMap = {}) {
     txBps:         0,
     signalStrength: 0,
     lastSeen:      (row['LAST SEEN'] && row['LAST SEEN'] !== '-') ? row['LAST SEEN'] : new Date().toISOString(),
-    group:         row['GROUP']            || '—',
-    firmware:      row['FIRMWARE VERSION'] || '—',
+    group:         row['GROUP']            || 'â€”',
+    firmware:      row['FIRMWARE VERSION'] || 'â€”',
     swarmName:     row['VIRTUAL CONTROLLER'] || '',
     downReason:    '',
     lldpNeighbor:  row['LLDP NEIGHBOR']   || '',
@@ -415,15 +415,15 @@ function loadCSVFallback() {
 
 loadCSVFallback();
 
-/* ── Rutas ────────────────────────────────────────────────── */
+/* â”€â”€ Rutas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
-app.get('/proxy/status', async (_req, res) => {
+app.get('/api/status', async (_req, res) => {
   const tk = await getToken();
   res.json({ connected: !!tk, expiresAt: new Date(token.expiresAt).toISOString(), baseUrl: BASE, user: process.env.ARUBA_USER });
 });
 
-// APs — todos los dispositivos con paginación automática
-app.get('/proxy/aps', async (_req, res) => {
+// APs â€” todos los dispositivos con paginaciÃ³n automÃ¡tica
+app.get('/api/aps', async (_req, res) => {
   try {
     const [rawAPs, rawClients] = await Promise.allSettled([
       arubaGetAll('/monitoring/v2/aps', 'aps', { calculate_client_count: true }),
@@ -433,13 +433,13 @@ app.get('/proxy/aps', async (_req, res) => {
     const aps     = rawAPs.status     === 'fulfilled' ? rawAPs.value     : [];
     const clients = rawClients.status === 'fulfilled' ? rawClients.value : [];
 
-    // Si la API no devuelve dispositivos (token caducado) → usar datos CSV
+    // Si la API no devuelve dispositivos (token caducado) â†’ usar datos CSV
     if (aps.length === 0 && csvAPs.length > 0) {
-      console.log(`[APs] API devolvió 0 → usando ${csvAPs.length} APs desde CSV`);
+      console.log(`[APs] API devolviÃ³ 0 â†’ usando ${csvAPs.length} APs desde CSV`);
       return res.json(csvAPs);
     }
 
-    // Mapa serial → clientes reales
+    // Mapa serial â†’ clientes reales
     const clientsPerSerial = {};
     for (const c of clients) {
       const s = c.associated_device;
@@ -451,7 +451,7 @@ app.get('/proxy/aps', async (_req, res) => {
 });
 
 // AP detalle
-app.get('/proxy/aps/:serial', async (req, res) => {
+app.get('/api/aps/:serial', async (req, res) => {
   try {
     const data = await arubaGet(`/monitoring/v2/aps/${req.params.serial}`);
     res.json(mapAP(data));
@@ -459,7 +459,7 @@ app.get('/proxy/aps/:serial', async (req, res) => {
 });
 
 // Reboot AP
-app.post('/proxy/aps/:serial/reboot', async (req, res) => {
+app.post('/api/aps/:serial/reboot', async (req, res) => {
   try {
     const data = await arubaPost('/device_management/v1/action/reboot', {
       device_type: 'IAP',
@@ -469,25 +469,25 @@ app.post('/proxy/aps/:serial/reboot', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Shutdown/disable AP — Aruba Central no tiene comando de apagado remoto para APs PoE.
-// Intentamos deshabilitar los radios vía config; si falla, devolvemos instrucciones físicas.
-app.post('/proxy/aps/:serial/shutdown', async (req, res) => {
+// Shutdown/disable AP â€” Aruba Central no tiene comando de apagado remoto para APs PoE.
+// Intentamos deshabilitar los radios vÃ­a config; si falla, devolvemos instrucciones fÃ­sicas.
+app.post('/api/aps/:serial/shutdown', async (req, res) => {
   const serial = req.params.serial;
   try {
     await arubaPost(`/configuration/v2/ap_settings/${serial}`, { admin_state: false });
     res.json({ success: true, message: 'AP desactivado remotamente. Los radios han sido apagados.' });
   } catch {
-    // Aruba Central no expone un shutdown remoto estándar para APs PoE.
-    // Devolvemos info útil para que el técnico pueda apagarlo físicamente.
+    // Aruba Central no expone un shutdown remoto estÃ¡ndar para APs PoE.
+    // Devolvemos info Ãºtil para que el tÃ©cnico pueda apagarlo fÃ­sicamente.
     res.json({
       success: false,
-      message: `El AP ${serial} opera vía PoE. Para apagarlo físicamente, desconecte el puerto PoE en el switch al que está conectado. El reinicio remoto (Reboot) sí está disponible.`,
+      message: `El AP ${serial} opera vÃ­a PoE. Para apagarlo fÃ­sicamente, desconecte el puerto PoE en el switch al que estÃ¡ conectado. El reinicio remoto (Reboot) sÃ­ estÃ¡ disponible.`,
     });
   }
 });
 
-// Switches — todos con paginación automática
-app.get('/proxy/switches', async (_req, res) => {
+// Switches â€” todos con paginaciÃ³n automÃ¡tica
+app.get('/api/switches', async (_req, res) => {
   try {
     const list = await arubaGetAll('/monitoring/v1/switches', 'switches');
 
@@ -511,15 +511,15 @@ app.get('/proxy/switches', async (_req, res) => {
 });
 
 // Puertos de un switch
-app.get('/proxy/switches/:serial/ports', async (req, res) => {
+app.get('/api/switches/:serial/ports', async (req, res) => {
   try {
     const data = await arubaGet(`/monitoring/v1/switches/${req.params.serial}/ports`);
     res.json((data.ports || []).map(mapPort));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Gateways / Controladores — prueba múltiples endpoints según tipo de cuenta
-app.get('/proxy/gateways', async (_req, res) => {
+// Gateways / Controladores â€” prueba mÃºltiples endpoints segÃºn tipo de cuenta
+app.get('/api/gateways', async (_req, res) => {
   const PATHS = [
     { path: '/monitoring/v2/gateways',              key: 'gateways'   },
     { path: '/monitoring/v1/gateways',              key: 'gateways'   },
@@ -535,13 +535,13 @@ app.get('/proxy/gateways', async (_req, res) => {
       }
     } catch { /* siguiente path */ }
   }
-  // Si ningún path devuelve gateways, responde vacío sin error
+  // Si ningÃºn path devuelve gateways, responde vacÃ­o sin error
   console.log('[GW] Sin gateways en la cuenta o no soportado');
   res.json([]);
 });
 
-// Clientes wireless — /monitoring/v1/clients/wireless ✓
-app.get('/proxy/clients', async (_req, res) => {
+// Clientes wireless â€” /monitoring/v1/clients/wireless âœ“
+app.get('/api/clients', async (_req, res) => {
   try {
     const [wifi, wired] = await Promise.allSettled([
       arubaGet('/monitoring/v1/clients/wireless', { calculate_total: true }),
@@ -553,8 +553,8 @@ app.get('/proxy/clients', async (_req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Alertas / Notificaciones — /central/v1/notifications ✓
-app.get('/proxy/alerts', async (_req, res) => {
+// Alertas / Notificaciones â€” /central/v1/notifications âœ“
+app.get('/api/alerts', async (_req, res) => {
   try {
     const data = await arubaGet('/central/v1/notifications', { size: 200 });
     res.json((data.notifications || []).map(mapNotification));
@@ -562,15 +562,15 @@ app.get('/proxy/alerts', async (_req, res) => {
 });
 
 // Acknowledge alerta
-app.post('/proxy/alerts/:id/acknowledge', async (req, res) => {
+app.post('/api/alerts/:id/acknowledge', async (req, res) => {
   try {
     const data = await arubaPost(`/central/v1/notifications/ack`, { ids: [req.params.id] });
     res.json({ success: true, data });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Overview — calculado desde datos reales
-app.get('/proxy/overview', async (_req, res) => {
+// Overview â€” calculado desde datos reales
+app.get('/api/overview', async (_req, res) => {
   try {
     const [apRes, swRes, notifRes] = await Promise.allSettled([
       arubaGetAll('/monitoring/v2/aps', 'aps', { calculate_client_count: true }),
@@ -609,7 +609,7 @@ app.get('/proxy/overview', async (_req, res) => {
 });
 
 // Eventos de red (para el log)
-app.get('/proxy/events', async (_req, res) => {
+app.get('/api/events', async (_req, res) => {
   try {
     const data = await arubaGet('/monitoring/v1/events', { limit: 50 });
     res.json(data.events || data || []);
@@ -617,8 +617,9 @@ app.get('/proxy/events', async (_req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`\n🔵 Aruba Central Proxy → http://localhost:${PORT}`);
+  console.log(`\nðŸ”µ Aruba Central Proxy â†’ http://localhost:${PORT}`);
   console.log(`   Cluster: ${BASE}`);
   console.log(`   Usuario: ${process.env.ARUBA_USER}`);
   console.log(`   Token vence: ${new Date(token.expiresAt).toLocaleTimeString()}\n`);
 });
+

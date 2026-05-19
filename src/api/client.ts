@@ -10,8 +10,9 @@ import {
   generateBandwidthHistory, mockAPs, mockClients, mockSwitches, getOverview,
 } from '../data/mockData';
 
-/* El Vite proxy redirige /proxy → http://localhost:4000/proxy */
-const http = axios.create({ baseURL: '/proxy', timeout: 15_000 });
+/* En dev: Vite proxy redirige /api → http://localhost:4000/api
+   En prod (Vercel): /api/ es manejado por Serverless Functions */
+const http = axios.create({ baseURL: '/api', timeout: 15_000 });
 
 /* Detecta si el proxy está disponible */
 let _proxyOk: boolean | null = null;
