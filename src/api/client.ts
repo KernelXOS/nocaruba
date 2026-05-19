@@ -151,6 +151,20 @@ export const api = {
     return { success: false, message: 'Proxy no disponible. Desconecte el PoE físicamente.' };
   },
 
+  async toggleSwitchPort(switchName: string, port: string, enabled: boolean): Promise<{ success: boolean; manual?: boolean; message: string }> {
+    if (await proxyAvailable()) {
+      try {
+        const { data } = await http.post('/switch-port-poe', { switchName, port, enabled });
+        return data;
+      } catch (e) { console.error('[poe]', e); }
+    }
+    return {
+      success: false,
+      manual: true,
+      message: `Proxy no disponible.\nPara ${enabled ? 'encender' : 'apagar'} el AP:\nSwitch: ${switchName}\nPuerto PoE: ${port}`,
+    };
+  },
+
   async acknowledgeAlert(id: string) {
     if (await proxyAvailable()) {
       try {

@@ -360,6 +360,18 @@ export function loadCSVAPs() {
   return _csvAPs;
 }
 
+export async function arubaPut(path, body = {}) {
+  const tk  = await getToken();
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${tk}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(`${res.status}: ${text.slice(0, 200)}`);
+  try { return JSON.parse(text); } catch { return {}; }
+}
+
 export function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');

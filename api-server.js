@@ -86,6 +86,18 @@ async function arubaPost(path, body = {}) {
   return JSON.parse(text);
 }
 
+async function arubaPut(path, body = {}) {
+  const tk  = await getToken();
+  const res  = await fetch(`${BASE}${path}`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${tk}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(`${res.status}: ${text.slice(0, 200)}`);
+  try { return JSON.parse(text); } catch { return {}; }
+}
+
 /* â”€â”€ Mappers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 /* Extrae campus y ubicaciÃ³n del nombre del AP.
    Formato: "Campus Central - Biblioteca 3" o "Tachina - Aula 206"
@@ -606,6 +618,57 @@ app.get('/api/overview', async (_req, res) => {
       rfHealth: 85,
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Control PoE del switch — apaga/enciende el puerto al que está conectado el AP
+app.post('/api/switch-port-poe', async (req, res) => {
+  const { switchName, port, enabled } = req.body;
+  const action = enabled ? 'encender' : 'apagar';
+  const state  = enabled ? 'Up' : 'Down';
+
+  let switchSerial = null;
+  try {
+    const switches = await arubaGetAll('/monitoring/v1/switches', 'switches');
+    const sw = switches.find(s =>
+      s.name && switchName && (
+        s.name.toLowerCase() === switchName.toLowerCase() ||
+        s.name.toLowerCase().includes(switchName.toLowerCase()) ||
+        switchName.toLowerCase().includes(s.name.toLowerCase())
+      )
+    );
+    if (sw) switchSerial = sw.serial;
+  } catch { /* token vencido */ }
+
+  if (!switchSerial) {
+    return res.json({
+      success: false, manual: true,
+      message: `Token vencido — no se pudo obtener el serial del switch.\n\nPara ${action} el AP manualmente:\nSwitch: ${switchName || 'Ver LLDP'}\nPuerto PoE: ${port}\n\nCLI: interface ${port} → ${enabled ? 'no shutdown' : 'shutdown'}`,
+    });
+  }
+
+  const enc = port.replace(/\//g, '%2F');
+  const PATHS = [
+    `/configuration/v1/switch/${switchSerial}/ports/${enc}`,
+    `/configuration/v2/switch/${switchSerial}/ports/${enc}`,
+    `/configuration/v1/switch/${switchSerial}/port/${enc}`,
+  ];
+
+  for (const apiPath of PATHS) {
+    try {
+      await arubaPut(apiPath, { admin_state: state, poe_enabled: enabled });
+      return res.json({
+        success: true,
+        message: enabled
+          ? `Puerto PoE ${port} habilitado en ${switchName}. El AP se encenderá en ~2 minutos.`
+          : `Puerto PoE ${port} deshabilitado en ${switchName}. El AP se apagará en segundos.`,
+      });
+    } catch { /* siguiente */ }
+  }
+
+  res.json({
+    success: false, manual: true,
+    message: `API no pudo controlar el puerto.\n\nPara ${action} el AP:\nSwitch: ${switchName}\nPuerto PoE: ${port}`,
+  });
 });
 
 // Eventos de red (para el log)
