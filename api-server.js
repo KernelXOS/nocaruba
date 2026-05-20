@@ -6,7 +6,14 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
+import { resolve } from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = dirname(__filename);
+const ENV_PATH   = resolve(__dirname, '.env');
 
 const app  = express();
 const PORT = parseInt(process.env.PROXY_PORT || '4000');
@@ -41,7 +48,16 @@ async function getToken() {
       token.access    = data.access_token;
       token.refresh   = data.refresh_token || token.refresh;
       token.expiresAt = Date.now() + data.expires_in * 1000;
-      console.log('[AUTH] Token renovado â€” vence en', data.expires_in, 'seg');
+      console.log('[AUTH] Token renovado — vence en', data.expires_in, 'seg');
+      // Persistir los nuevos tokens en .env para que sobrevivan reinicios del servidor
+      try {
+        let env = readFileSync(ENV_PATH, 'utf-8');
+        env = env.replace(/^ARUBA_ACCESS_TOKEN=.*/m,    `ARUBA_ACCESS_TOKEN=${token.access}`);
+        env = env.replace(/^ARUBA_REFRESH_TOKEN=.*/m,   `ARUBA_REFRESH_TOKEN=${token.refresh}`);
+        env = env.replace(/^ARUBA_TOKEN_EXPIRES_AT=.*/m,`ARUBA_TOKEN_EXPIRES_AT=${token.expiresAt}`);
+        writeFileSync(ENV_PATH, env, 'utf-8');
+        console.log('[AUTH] Tokens guardados en .env');
+      } catch (we) { console.warn('[AUTH] No se pudo guardar .env:', we.message); }
     }
   } catch (e) { console.error('[AUTH] Refresh error:', e.message); }
   return token.access;
