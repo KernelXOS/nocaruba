@@ -2,11 +2,5 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "installCommand": "npm install",
-  "functions": {
-    "api/**/*.js": {
-      "runtime": "nodejs20.x",
-      "includeFiles": "api/_data/**"
-    }
-  }
+  "installCommand": "npm install"
 }
