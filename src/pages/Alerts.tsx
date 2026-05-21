@@ -1,23 +1,419 @@
 import { useState } from 'react';
-import { Bell, CheckCheck, AlertTriangle, Info, Filter } from 'lucide-react';
-import { useAlerts } from '../hooks/useData';
+import {
+  Bell, CheckCheck, AlertTriangle, Info, Filter, X, Wifi, WifiOff,
+  Thermometer, Cpu, Server, RefreshCw, Phone, Network,
+  ChevronRight, Clock, MapPin, Hash, Monitor, Zap, Activity,
+  AlertOctagon, CheckCircle, LifeBuoy, Radio,
+} from 'lucide-react';
+import { useAlerts, useAPs, useSwitches } from '../hooks/useData';
 import { api } from '../api/client';
-import type { Alert, AlertSeverity } from '../types';
+import type { Alert, AlertSeverity, AccessPoint, NetworkSwitch } from '../types';
 import { formatDistanceToNow, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useQueryClient } from '@tanstack/react-query';
 
+/* ── Colores por severidad ──────────────────────────────────── */
 const SEV: Record<AlertSeverity, { color: string; bg: string; icon: JSX.Element; label: string }> = {
   critical: { color:'#ef4444', bg:'#ef444415', icon:<AlertTriangle size={14} style={{ color:'#ef4444' }} />, label:'Crítico' },
   warning:  { color:'#f59e0b', bg:'#f59e0b15', icon:<AlertTriangle size={14} style={{ color:'#f59e0b' }} />, label:'Advertencia' },
   info:     { color:'#3b82f6', bg:'#3b82f615', icon:<Info size={14} style={{ color:'#3b82f6' }} />,          label:'Info' },
 };
 
+/* ── Pasos de diagnóstico y acciones según categoría ────────── */
+interface ActionPlan {
+  diagnosis: string[];
+  steps: { icon: JSX.Element; text: string; priority: 'high' | 'medium' | 'low' }[];
+  buttons: { label: string; icon: JSX.Element; color: string; action: string }[];
+}
+
+function getActionPlan(alert: Alert, ap?: AccessPoint | null, sw?: NetworkSwitch | null): ActionPlan {
+  const cat = (alert.category || '').toLowerCase();
+  const msg = (alert.message   || '').toLowerCase();
+
+  /* AP OFFLINE */
+  if (msg.includes('desconectado') || msg.includes('offline') || cat.includes('ap offline')) {
+    return {
+      diagnosis: [
+        ap?.downReason ? `Razón reportada: ${ap.downReason}` : 'El AP no responde a pings desde el controlador',
+        ap?.lldpNeighbor ? `Conectado al switch: ${ap.lldpNeighbor} · Puerto: ${ap.lldpPort}` : 'Verificar conexión física al switch de acceso',
+        ap?.uptime === 0 ? 'Uptime en 0 — posible corte de energía o cable' : `Último uptime: ${Math.floor((ap?.uptime ?? 0) / 3600)}h`,
+      ],
+      steps: [
+        { icon: <Zap size={14} />,     text: 'Verificar alimentación PoE en el switch de acceso', priority: 'high' },
+        { icon: <Network size={14} />, text: 'Confirmar que el cable Ethernet llega al AP', priority: 'high' },
+        { icon: <RefreshCw size={14} />, text: 'Si PoE está activo, reiniciar el puerto del switch', priority: 'medium' },
+        { icon: <Radio size={14} />,   text: 'Verificar configuración de VLAN de management', priority: 'medium' },
+        { icon: <Phone size={14} />,   text: 'Si persiste, escalar al proveedor Aruba o revisar físicamente', priority: 'low' },
+      ],
+      buttons: [
+        { label: 'Ping AP', icon: <Activity size={13} />, color: '#3b82f6', action: `ping ${ap?.ip ?? alert.device}` },
+        { label: 'Ver en Aruba', icon: <Monitor size={13} />, color: '#6366f1', action: 'aruba-central' },
+        { label: 'Reconocer', icon: <CheckCheck size={13} />, color: '#10b981', action: 'ack' },
+      ],
+    };
+  }
+
+  /* TEMPERATURA */
+  if (msg.includes('temperatura') || msg.includes('°c') || cat.includes('temp')) {
+    const temp = ap?.temperature ?? parseInt(msg.match(/(\d+)/)?.[1] ?? '0');
+    return {
+      diagnosis: [
+        `Temperatura actual: ${temp}°C (umbral crítico: 70°C)`,
+        temp > 80  ? '⚠ Temperatura muy peligrosa — daño permanente posible' :
+        temp > 70  ? '⚠ Temperatura crítica — riesgo de shutdown automático' :
+                    '⚠ Temperatura elevada — monitorizar',
+        'Posible causa: ventilación bloqueada, AC deficiente o alta carga de clientes',
+      ],
+      steps: [
+        { icon: <Thermometer size={14} />, text: 'Verificar ventilación del área donde está el AP', priority: 'high' },
+        { icon: <Cpu size={14} />,        text: `Revisar carga de clientes actual: ${ap?.clients ?? '?'} clientes conectados`, priority: 'high' },
+        { icon: <RefreshCw size={14} />,  text: 'Reiniciar el AP si la temperatura supera 75°C', priority: 'medium' },
+        { icon: <MapPin size={14} />,     text: 'Revisar físicamente la instalación — posible obstrucción de rejillas', priority: 'medium' },
+        { icon: <Phone size={14} />,      text: 'Si hay AC en la sala, verificar que funcione correctamente', priority: 'low' },
+      ],
+      buttons: [
+        { label: 'Reiniciar AP', icon: <RefreshCw size={13} />, color: '#f59e0b', action: 'reboot' },
+        { label: 'Ver en Aruba', icon: <Monitor size={13} />, color: '#6366f1', action: 'aruba-central' },
+        { label: 'Reconocer', icon: <CheckCheck size={13} />, color: '#10b981', action: 'ack' },
+      ],
+    };
+  }
+
+  /* CPU ALTO */
+  if (msg.includes('cpu') || cat.includes('cpu')) {
+    const cpu = ap?.cpuUsage ?? parseInt(msg.match(/(\d+)%/)?.[1] ?? '0');
+    return {
+      diagnosis: [
+        `CPU actual: ${cpu}% (umbral de alerta: 70%)`,
+        `Clientes conectados: ${ap?.clients ?? '?'} — exceso puede saturar el procesador`,
+        'Posibles causas: demasiados clientes, interferencia RF, escaneo de red',
+      ],
+      steps: [
+        { icon: <Cpu size={14} />,      text: 'Verificar número de clientes y redistribuir si supera 30 por AP', priority: 'high' },
+        { icon: <Radio size={14} />,    text: 'Revisar interferencias RF en el canal actual', priority: 'high' },
+        { icon: <RefreshCw size={14} />, text: 'Reiniciar el AP para liberar memoria y procesos', priority: 'medium' },
+        { icon: <Network size={14} />,  text: 'Considerar habilitar band steering hacia 5GHz', priority: 'medium' },
+        { icon: <Activity size={14} />, text: 'Monitorizar por 15 min para ver si baja naturalmente', priority: 'low' },
+      ],
+      buttons: [
+        { label: 'Reiniciar AP', icon: <RefreshCw size={13} />, color: '#f59e0b', action: 'reboot' },
+        { label: 'Ver clientes', icon: <Wifi size={13} />, color: '#3b82f6', action: 'clients' },
+        { label: 'Reconocer', icon: <CheckCheck size={13} />, color: '#10b981', action: 'ack' },
+      ],
+    };
+  }
+
+  /* ERRORES CRC / PUERTO */
+  if (msg.includes('crc') || msg.includes('puerto') || msg.includes('port') || cat.includes('puerto')) {
+    return {
+      diagnosis: [
+        'Errores CRC indican problemas de capa física — cable o SFP defectuoso',
+        sw ? `Switch afectado: ${sw.name} · IP: ${sw.ip}` : `Switch: ${alert.device}`,
+        'Un puerto con CRC alto puede causar pérdida de paquetes y degradar la red',
+      ],
+      steps: [
+        { icon: <Network size={14} />, text: 'Reemplazar el cable de red conectado al puerto con errores', priority: 'high' },
+        { icon: <Zap size={14} />,     text: 'Verificar conectores RJ45 — posible corrosión o daño físico', priority: 'high' },
+        { icon: <RefreshCw size={14} />, text: 'Deshabilitar y habilitar el puerto para limpiar contadores', priority: 'medium' },
+        { icon: <Activity size={14} />, text: 'Revisar velocidad/duplex negociada — forzar a 1G Full si es necesario', priority: 'medium' },
+        { icon: <Server size={14} />,  text: 'Si persiste, mover el dispositivo a otro puerto del switch', priority: 'low' },
+      ],
+      buttons: [
+        { label: 'Deshabilitar puerto', icon: <Zap size={13} />, color: '#ef4444', action: 'disable-port' },
+        { label: 'Ver switch', icon: <Server size={13} />, color: '#6366f1', action: 'switches' },
+        { label: 'Reconocer', icon: <CheckCheck size={13} />, color: '#10b981', action: 'ack' },
+      ],
+    };
+  }
+
+  /* DEFAULT */
+  return {
+    diagnosis: [
+      alert.detail ?? 'Sin información adicional del API',
+      `Dispositivo: ${alert.device}`,
+      `Categoría: ${alert.category}`,
+    ],
+    steps: [
+      { icon: <Activity size={14} />, text: 'Verificar el estado del dispositivo en Aruba Central', priority: 'high' },
+      { icon: <RefreshCw size={14} />, text: 'Reiniciar el dispositivo si no hay comunicación', priority: 'medium' },
+      { icon: <Phone size={14} />,    text: 'Escalar al equipo de redes si persiste por más de 30 min', priority: 'low' },
+    ],
+    buttons: [
+      { label: 'Ver en Aruba', icon: <Monitor size={13} />, color: '#6366f1', action: 'aruba-central' },
+      { label: 'Reconocer', icon: <CheckCheck size={13} />, color: '#10b981', action: 'ack' },
+    ],
+  };
+}
+
+/* ── Modal de detalle ──────────────────────────────────────── */
+function AlertModal({
+  alert, ap, sw, onClose, onAck, acking,
+}: {
+  alert: Alert;
+  ap: AccessPoint | null;
+  sw: NetworkSwitch | null;
+  onClose: () => void;
+  onAck: (id: string) => void;
+  acking: string | null;
+}) {
+  const s    = SEV[alert.severity];
+  const plan = getActionPlan(alert, ap, sw);
+  const ARUBA_BASE = 'https://app.central.arubanetworks.com';
+
+  const handleButton = (action: string) => {
+    if (action === 'ack') { onAck(alert.id); return; }
+    if (action === 'aruba-central') {
+      window.open(`${ARUBA_BASE}/frontend/#/DASHBOARD/NETWORK/ACCESS_POINTS/`, '_blank');
+      return;
+    }
+    if (action === 'clients') { window.location.href = '/clients'; return; }
+    if (action === 'switches') { window.location.href = '/switches'; return; }
+    // ping, reboot, disable-port — solo informar
+    alert && window.open(`${ARUBA_BASE}/frontend/`, '_blank');
+  };
+
+  const PRIORITY_STYLE: Record<string, { color: string; label: string }> = {
+    high:   { color: '#ef4444', label: 'URGENTE' },
+    medium: { color: '#f59e0b', label: 'IMPORTANTE' },
+    low:    { color: '#3b82f6', label: 'OPCIONAL' },
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl"
+        style={{
+          background: 'linear-gradient(135deg, #0d1526 0%, #0a1020 100%)',
+          border: `1px solid ${s.color}40`,
+          boxShadow: `0 0 60px ${s.color}20, 0 20px 60px rgba(0,0,0,0.6)`,
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between p-5 pb-4"
+          style={{ borderBottom: `1px solid ${s.color}20` }}>
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl" style={{ background: s.bg }}>
+              {alert.severity === 'critical'
+                ? <AlertOctagon size={22} style={{ color: s.color }} />
+                : <AlertTriangle size={22} style={{ color: s.color }} />}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: s.bg, color: s.color, border: `1px solid ${s.color}30` }}>
+                  {s.label}
+                </span>
+                <span className="text-xs px-2 py-0.5 rounded-full"
+                  style={{ background: '#1e346020', color: '#6b8bb5' }}>
+                  {alert.category}
+                </span>
+              </div>
+              <h2 className="text-base font-bold text-white mt-1">{alert.message}</h2>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-lg hover:opacity-70 transition-opacity"
+            style={{ color: '#4b7ab5' }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-5">
+
+          {/* Timestamps */}
+          <div className="flex items-center gap-4 text-xs" style={{ color: '#4b7ab5' }}>
+            <span className="flex items-center gap-1.5">
+              <Clock size={12} />
+              {formatDistanceToNow(new Date(alert.timestamp), { addSuffix: true, locale: es })}
+            </span>
+            <span>{format(new Date(alert.timestamp), 'dd/MM/yyyy HH:mm:ss')}</span>
+            {alert.building && (
+              <span className="flex items-center gap-1.5">
+                <MapPin size={12} /> {alert.building}
+              </span>
+            )}
+            {alert.acknowledged && (
+              <span className="flex items-center gap-1.5 text-green-400">
+                <CheckCircle size={12} /> Reconocida
+              </span>
+            )}
+          </div>
+
+          {/* Dispositivo — datos reales del AP */}
+          {ap && (
+            <div className="rounded-xl p-4 space-y-3"
+              style={{ background: '#0d1a2e', border: '1px solid #1e3460' }}>
+              <div className="text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-2"
+                style={{ color: '#4b7ab5' }}>
+                <Radio size={12} /> Dispositivo afectado (datos en tiempo real)
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {[
+                  { label: 'Nombre',   value: ap.name,     icon: <Wifi size={11} /> },
+                  { label: 'Serial',   value: ap.serial,   icon: <Hash size={11} /> },
+                  { label: 'IP',       value: ap.ip,       icon: <Network size={11} /> },
+                  { label: 'Modelo',   value: ap.model,    icon: <Monitor size={11} /> },
+                  { label: 'Estado',   value: ap.status,   icon: ap.status === 'offline' ? <WifiOff size={11} /> : <Wifi size={11} /> },
+                  { label: 'Clientes', value: `${ap.clients}`, icon: <Activity size={11} /> },
+                  { label: 'CPU',      value: `${ap.cpuUsage}%`, icon: <Cpu size={11} /> },
+                  { label: 'Temp',     value: `${ap.temperature}°C`, icon: <Thermometer size={11} /> },
+                  { label: 'Edificio', value: ap.building, icon: <MapPin size={11} /> },
+                ].map(({ label, value, icon }) => (
+                  <div key={label} className="p-2.5 rounded-lg"
+                    style={{ background: '#131f38', border: '1px solid #1e3460' }}>
+                    <div className="flex items-center gap-1.5 text-xs mb-1" style={{ color: '#4b7ab5' }}>
+                      {icon} {label}
+                    </div>
+                    <div className="text-sm font-mono font-medium truncate"
+                      style={{
+                        color: label === 'Estado'
+                          ? ap.status === 'offline' ? '#ef4444' : ap.status === 'warning' ? '#f59e0b' : '#10b981'
+                          : label === 'CPU' && ap.cpuUsage > 70 ? '#f59e0b'
+                          : label === 'Temp' && ap.temperature > 65 ? '#ef4444'
+                          : '#e2e8f0',
+                      }}>
+                      {value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {ap.downReason && (
+                <div className="mt-2 p-2.5 rounded-lg text-xs"
+                  style={{ background: '#2a0a0a', border: '1px solid #ef444430', color: '#ef9999' }}>
+                  <span className="font-bold">Razón de caída (API):</span> {ap.downReason}
+                </div>
+              )}
+              {ap.lldpNeighbor && (
+                <div className="p-2.5 rounded-lg text-xs"
+                  style={{ background: '#0a1a2e', border: '1px solid #1e346050', color: '#6b8bb5' }}>
+                  <span style={{ color: '#4b7ab5' }}>Conectado a:</span>{' '}
+                  <span className="font-mono text-white">{ap.lldpNeighbor}</span>
+                  {ap.lldpPort && <> · Puerto <span className="font-mono text-white">{ap.lldpPort}</span></>}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Switch data si aplica */}
+          {sw && !ap && (
+            <div className="rounded-xl p-4"
+              style={{ background: '#0d1a2e', border: '1px solid #1e3460' }}>
+              <div className="text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-2"
+                style={{ color: '#4b7ab5' }}>
+                <Server size={12} /> Switch afectado
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+                {[
+                  ['Nombre', sw.name], ['IP', sw.ip], ['Serial', sw.serial],
+                  ['Estado', sw.status], ['CPU', `${sw.cpuUsage}%`], ['Temp', `${sw.temperature}°C`],
+                ].map(([l, v]) => (
+                  <div key={l}>
+                    <span style={{ color: '#4b7ab5' }}>{l}: </span>
+                    <span className="font-mono text-white">{v}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Diagnóstico */}
+          <div className="rounded-xl p-4"
+            style={{ background: '#100a06', border: `1px solid ${s.color}25` }}>
+            <div className="text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-2"
+              style={{ color: s.color }}>
+              <AlertTriangle size={12} /> Diagnóstico
+            </div>
+            <ul className="space-y-1.5">
+              {plan.diagnosis.map((d, i) => (
+                <li key={i} className="text-sm flex items-start gap-2" style={{ color: '#c8d8ea' }}>
+                  <span className="mt-1 flex-shrink-0 w-1.5 h-1.5 rounded-full" style={{ background: s.color }} />
+                  {d}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Pasos de solución */}
+          <div className="rounded-xl p-4"
+            style={{ background: '#060f1e', border: '1px solid #1e3460' }}>
+            <div className="text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-2"
+              style={{ color: '#10b981' }}>
+              <LifeBuoy size={12} /> Plan de acción
+            </div>
+            <ol className="space-y-2">
+              {plan.steps.map((step, i) => {
+                const ps = PRIORITY_STYLE[step.priority];
+                return (
+                  <li key={i} className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mt-0.5"
+                      style={{ background: `${ps.color}15`, color: ps.color, border: `1px solid ${ps.color}30` }}>
+                      {i + 1}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm text-white">{step.text}</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded font-mono"
+                          style={{ background: `${ps.color}15`, color: ps.color }}>
+                          {ps.label}
+                        </span>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+
+          {/* Botones de acción */}
+          <div className="flex flex-wrap gap-2 pt-1">
+            {plan.buttons.map((btn) => (
+              <button key={btn.action}
+                onClick={() => handleButton(btn.action)}
+                disabled={btn.action === 'ack' && (acking === alert.id || alert.acknowledged)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:opacity-80 active:scale-95"
+                style={{
+                  background: `${btn.color}15`,
+                  color:      btn.color,
+                  border:     `1px solid ${btn.color}40`,
+                  opacity:    btn.action === 'ack' && alert.acknowledged ? 0.5 : 1,
+                }}>
+                {btn.icon}
+                {btn.action === 'ack' && acking === alert.id ? 'Reconociendo...' : btn.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Detail del API */}
+          {alert.detail && (
+            <div className="text-xs p-3 rounded-lg font-mono"
+              style={{ background: '#060d1a', border: '1px solid #1e3460', color: '#4b7ab5' }}>
+              <span style={{ color: '#374d6b' }}>API detail: </span>{alert.detail}
+            </div>
+          )}
+
+          {/* Device raw */}
+          <div className="text-xs font-mono" style={{ color: '#1e3460' }}>
+            ID: {alert.id} · Dispositivo: {alert.device}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Página principal ─────────────────────────────────────── */
 export default function Alerts() {
   const { data: alerts, isLoading } = useAlerts();
-  const qc = useQueryClient();
-  const [filter, setFilter] = useState<'all' | AlertSeverity | 'unack'>('unack');
-  const [acking, setAcking] = useState<string | null>(null);
+  const { data: aps }               = useAPs();
+  const { data: switches }          = useSwitches();
+  const qc                          = useQueryClient();
+  const [filter, setFilter]         = useState<'all' | AlertSeverity | 'unack'>('unack');
+  const [acking, setAcking]         = useState<string | null>(null);
+  const [selected, setSelected]     = useState<Alert | null>(null);
 
   const counts = {
     all:      (alerts ?? []).length,
@@ -38,14 +434,35 @@ export default function Alerts() {
     try {
       await api.acknowledgeAlert(id);
       qc.invalidateQueries({ queryKey: ['alerts'] });
-    } finally {
-      setAcking(null);
-    }
+      if (selected?.id === id) setSelected(null);
+    } finally { setAcking(null); }
   };
 
   const ackAll = async () => {
-    const unack = (alerts ?? []).filter(a => !a.acknowledged);
-    for (const a of unack) await ack(a.id);
+    for (const a of (alerts ?? []).filter(a => !a.acknowledged)) await ack(a.id);
+  };
+
+  /* Buscar AP relacionado con la alerta */
+  const findAP = (alert: Alert): AccessPoint | null => {
+    if (!aps) return null;
+    const dev = (alert.device || '').toLowerCase();
+    return aps.find((ap: AccessPoint) =>
+      ap.serial?.toLowerCase() === dev ||
+      ap.name?.toLowerCase().includes(dev) ||
+      dev.includes(ap.name?.toLowerCase() ?? '') ||
+      ap.ip === alert.device
+    ) ?? null;
+  };
+
+  const findSwitch = (alert: Alert): NetworkSwitch | null => {
+    if (!switches) return null;
+    const dev = (alert.device || '').toLowerCase();
+    return switches.find((sw: NetworkSwitch) =>
+      sw.serial?.toLowerCase() === dev ||
+      sw.name?.toLowerCase().includes(dev) ||
+      dev.includes(sw.name?.toLowerCase() ?? '') ||
+      sw.ip === alert.device
+    ) ?? null;
   };
 
   const FILTERS = [
@@ -58,6 +475,20 @@ export default function Alerts() {
 
   return (
     <div className="space-y-4 card-enter">
+
+      {/* Modal */}
+      {selected && (
+        <AlertModal
+          alert={selected}
+          ap={findAP(selected)}
+          sw={findSwitch(selected)}
+          onClose={() => setSelected(null)}
+          onAck={ack}
+          acking={acking}
+        />
+      )}
+
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-bold text-white">Centro de Alertas</h1>
@@ -76,22 +507,17 @@ export default function Alerts() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="noc-card p-3">
-          <div className="text-xs" style={{ color:'#6b8bb5' }}>Sin Reconocer</div>
-          <div className="text-2xl font-mono font-bold mt-1" style={{ color:'#ef4444' }}>{counts.unack}</div>
-        </div>
-        <div className="noc-card p-3">
-          <div className="text-xs" style={{ color:'#6b8bb5' }}>Críticas</div>
-          <div className="text-2xl font-mono font-bold mt-1" style={{ color:'#ef4444' }}>{counts.critical}</div>
-        </div>
-        <div className="noc-card p-3">
-          <div className="text-xs" style={{ color:'#6b8bb5' }}>Advertencias</div>
-          <div className="text-2xl font-mono font-bold mt-1" style={{ color:'#f59e0b' }}>{counts.warning}</div>
-        </div>
-        <div className="noc-card p-3">
-          <div className="text-xs" style={{ color:'#6b8bb5' }}>Informativas</div>
-          <div className="text-2xl font-mono font-bold mt-1" style={{ color:'#3b82f6' }}>{counts.info}</div>
-        </div>
+        {[
+          { label:'Sin Reconocer', value: counts.unack,    color:'#ef4444' },
+          { label:'Críticas',      value: counts.critical, color:'#ef4444' },
+          { label:'Advertencias',  value: counts.warning,  color:'#f59e0b' },
+          { label:'Informativas',  value: counts.info,     color:'#3b82f6' },
+        ].map(({ label, value, color }) => (
+          <div key={label} className="noc-card p-3">
+            <div className="text-xs" style={{ color:'#6b8bb5' }}>{label}</div>
+            <div className="text-2xl font-mono font-bold mt-1" style={{ color }}>{value}</div>
+          </div>
+        ))}
       </div>
 
       {/* Filter bar */}
@@ -126,15 +552,17 @@ export default function Alerts() {
             const s = SEV[a.severity];
             return (
               <div key={a.id}
-                className="noc-card p-4 transition-all duration-200"
-                style={{ opacity: a.acknowledged ? 0.55 : 1, borderColor: a.acknowledged ? undefined : `${s.color}30` }}>
+                className="noc-card p-4 transition-all duration-200 cursor-pointer hover:scale-[1.005]"
+                style={{
+                  opacity: a.acknowledged ? 0.55 : 1,
+                  borderColor: a.acknowledged ? undefined : `${s.color}30`,
+                }}
+                onClick={() => setSelected(a)}
+              >
                 <div className="flex items-start gap-4">
-                  {/* Severity icon */}
                   <div className="flex-shrink-0 p-2 rounded-lg mt-0.5" style={{ background: s.bg }}>
                     {s.icon}
                   </div>
-
-                  {/* Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1">
@@ -158,27 +586,26 @@ export default function Alerts() {
                         </div>
                         <div className="font-semibold text-sm text-white mt-1.5">{a.message}</div>
                         {a.detail && (
-                          <div className="text-xs mt-1" style={{ color:'#6b8bb5' }}>{a.detail}</div>
+                          <div className="text-xs mt-1 truncate" style={{ color:'#6b8bb5' }}>{a.detail}</div>
                         )}
                         <div className="flex items-center gap-3 mt-2 text-xs" style={{ color:'#4b7ab5' }}>
                           <span className="font-mono">{a.device}</span>
                           <span>·</span>
                           <span>{formatDistanceToNow(new Date(a.timestamp), { addSuffix:true, locale:es })}</span>
-                          <span style={{ color:'#2a3f6e' }}>
-                            {format(new Date(a.timestamp), "dd/MM/yyyy HH:mm:ss")}
-                          </span>
                         </div>
                       </div>
-
-                      {/* Action */}
-                      {!a.acknowledged && (
-                        <button onClick={() => ack(a.id)} disabled={acking === a.id}
-                          className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors hover:opacity-80"
-                          style={{ background:'#10b98115', color:'#10b981', border:'1px solid #10b98130' }}>
-                          <CheckCheck size={12} />
-                          {acking === a.id ? '...' : 'Reconocer'}
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {!a.acknowledged && (
+                          <button onClick={e => { e.stopPropagation(); ack(a.id); }}
+                            disabled={acking === a.id}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors hover:opacity-80"
+                            style={{ background:'#10b98115', color:'#10b981', border:'1px solid #10b98130' }}>
+                            <CheckCheck size={12} />
+                            {acking === a.id ? '...' : 'Reconocer'}
+                          </button>
+                        )}
+                        <ChevronRight size={16} style={{ color:'#2a3f6e' }} />
+                      </div>
                     </div>
                   </div>
                 </div>
