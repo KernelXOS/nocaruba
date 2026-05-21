@@ -250,7 +250,7 @@ function renderHeatmap(
 
 /* ── Componente principal ─────────────────────────────────── */
 export default function Heatmap() {
-  const { data: aps,     isLoading: apsLoad  } = useAPs();
+  const { data: rawAps,  isLoading: apsLoad  } = useAPs();
   const { data: clients, isLoading: cliLoad  } = useClients();
   const { isDark } = useThemeStore();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -259,6 +259,15 @@ export default function Heatmap() {
   const [showAPs,   setShowAPs]   = useState(true);
   const [zoom,      setZoom]      = useState(1);
   const [selected,  setSelected]  = useState<AccessPoint | null>(null);
+
+  // Filtrar estrictamente para que solo aparezcan APs de Tachina
+  const aps = useMemo(() => {
+    if (!rawAps) return [];
+    return rawAps.filter(a => {
+      const str = `${a.name} ${a.group} ${a.building}`.toLowerCase();
+      return str.includes('tachina') || str.includes('adsis');
+    });
+  }, [rawAps]);
 
   const maxClients = useMemo(() =>
     Math.max(1, ...(aps ?? []).map(a => a.clients)),
