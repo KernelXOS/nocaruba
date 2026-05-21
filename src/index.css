@@ -5,16 +5,104 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  background-color: #07091a;
-  color: #e2e8f0;
+  background-color: #f0f2f5;
+  color: #334155;
   font-family: 'Inter', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+.dark body {
+  /* Deep vibrant dark blue instead of flat grey */
+  background-color: #0B0E14;
+  background-image: radial-gradient(circle at 50% 0%, #151b2b 0%, #0B0E14 70%);
+  color: #e2e8f0; 
+}
 
+/* Base Card Style */
+.noc-card {
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.dark .noc-card {
+  background-color: rgba(21, 27, 43, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.dark .noc-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px 0 rgba(6, 182, 212, 0.15);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+}
+
+/* Metric Box Style for top row */
+.metric-box {
+  background-color: #ffffff;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.3s ease;
+}
+.dark .metric-box {
+  background-color: rgba(30, 41, 59, 0.4);
+  backdrop-filter: blur(8px);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.dark .metric-box:hover {
+  background-color: rgba(30, 41, 59, 0.7);
+  border-color: rgba(59, 130, 246, 0.4);
+  transform: translateY(-2px);
+}
+
+/* Glow effects */
+.glow-btn {
+  transition: all 0.2s ease;
+}
+.glow-btn:hover {
+  box-shadow: 0 0 12px currentColor;
+  filter: brightness(1.2);
+}
+
+/* Pulse animation for critical alerts */
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; transform: scale(1); filter: drop-shadow(0 0 4px currentColor); }
+  50% { opacity: 0.7; transform: scale(1.05); filter: drop-shadow(0 0 12px currentColor); }
+}
+.animate-pulse-glow {
+  animation: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Radar Scanner Animation */
+@keyframes scan {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(1000%); }
+}
+.radar-scanner {
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 10%;
+  background: linear-gradient(to bottom, transparent, rgba(6, 182, 212, 0.4), transparent);
+  animation: scan 4s linear infinite;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Blueprint Grid Background */
+.blueprint-grid {
+  background-image: 
+    linear-gradient(rgba(59, 130, 246, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59, 130, 246, 0.1) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #0c1024; }
-::-webkit-scrollbar-thumb { background: #1e3460; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #2a3f6e; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; transform: scale(1); }
@@ -31,22 +119,26 @@ body {
 
 .dot-online  { animation: pulse-dot 2s ease-in-out infinite; background: #10b981; }
 .dot-warning { animation: pulse-dot 1.2s ease-in-out infinite; background: #f59e0b; }
-.dot-offline { background: #6b7280; }
+.dot-offline { background: #94a3b8; }
 .dot-critical { animation: blink-red 0.8s ease-in-out infinite; }
 
 .card-enter { animation: slide-in 0.25s ease-out; }
 
 .noc-card {
-  background: #111830;
-  border: 1px solid #1e3460;
+  background: #ffffff;
   border-radius: 0.75rem;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
 }
-.noc-card:hover { border-color: #2a4f8a; }
+.dark .noc-card {
+  background: #1e293b;
+  box-shadow: none;
+  border: 1px solid #334155;
+}
 
 .stat-value {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 2rem;
-  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  font-size: 2.25rem;
+  font-weight: 500;
   line-height: 1;
 }
 

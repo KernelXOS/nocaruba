@@ -1,51 +1,41 @@
-import type { LucideIcon } from 'lucide-react';
+import { ReactNode } from 'react';
 import clsx from 'clsx';
 
-interface Props {
+interface KPICardProps {
   title: string;
   value: string | number;
   sub?: string;
-  icon: LucideIcon;
+  icon: ReactNode;
   color?: string;
-  accent?: string;
-  trend?: 'up' | 'down' | 'neutral';
-  trendLabel?: string;
+  variant?: 'default' | 'primary';
   critical?: boolean;
 }
 
-export default function KPICard({ title, value, sub, icon: Icon, color = '#3b82f6', accent, trend, trendLabel, critical }: Props) {
+export default function KPICard({ title, value, sub, icon, color = '#f59e0b', variant = 'default', critical }: KPICardProps) {
+  const isPrimary = variant === 'primary';
+  
   return (
-    <div className={clsx('noc-card p-4 flex flex-col gap-3 relative overflow-hidden transition-all duration-200 cursor-default',
-      critical && 'border-red-600/40 shadow-red-900/20 shadow-lg')}
-      style={accent ? { borderColor: `${color}40` } : {}}>
-
-      {/* Glow */}
-      <div className="absolute top-0 right-0 w-24 h-24 rounded-full blur-2xl opacity-10 pointer-events-none"
-        style={{ background: color, transform:'translate(30%, -30%)' }} />
-
+    <div className={clsx(
+      "noc-card p-6 relative overflow-hidden flex flex-col justify-between transition-colors duration-200",
+      isPrimary ? "bg-noc-primary text-white dark:bg-[#1a2b4c]" : "bg-white text-slate-800 dark:bg-[#1e293b] dark:text-slate-100",
+      critical && !isPrimary && "border-2 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.2)]"
+    )}>
+      
       <div className="flex items-start justify-between">
-        <div className="flex items-center gap-2">
-          <div className="p-2 rounded-lg" style={{ background:`${color}18` }}>
-            <Icon size={16} style={{ color }} />
+        <div>
+          <h3 className={clsx("text-sm font-medium mb-2", isPrimary ? "text-slate-200" : "text-slate-500 dark:text-slate-400")}>{title}</h3>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-bold font-mono tracking-tight">{value}</span>
           </div>
-          <span className="text-xs font-medium" style={{ color:'#6b8bb5' }}>{title}</span>
         </div>
-        {critical && (
-          <span className="text-xs px-1.5 py-0.5 rounded font-mono dot-critical text-white" style={{ fontSize:10 }}>
-            CRÍTICO
-          </span>
-        )}
+        <div className={clsx("p-2.5 rounded-xl", isPrimary ? "bg-white/10" : "bg-orange-50 dark:bg-orange-500/10")} style={!isPrimary ? { color: color } : { color: 'white' }}>
+          {icon}
+        </div>
       </div>
-
-      <div>
-        <div className="stat-value" style={{ color: critical ? '#ef4444' : color }}>{value}</div>
-        {sub && <div className="text-xs mt-0.5" style={{ color:'#4b7ab5' }}>{sub}</div>}
-      </div>
-
-      {trendLabel && (
-        <div className={clsx('text-xs flex items-center gap-1', trend === 'up' ? 'text-green-400' : trend === 'down' ? 'text-red-400' : 'text-slate-400')}>
-          <span>{trend === 'up' ? '▲' : trend === 'down' ? '▼' : '—'}</span>
-          <span>{trendLabel}</span>
+      
+      {sub && (
+        <div className={clsx("text-xs font-medium mt-4", isPrimary ? "text-slate-300" : "text-slate-400 dark:text-slate-500")}>
+          {sub}
         </div>
       )}
     </div>

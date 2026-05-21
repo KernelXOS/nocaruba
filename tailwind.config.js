@@ -1,16 +1,19 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
         noc: {
-          bg:      '#07091a',
-          surface: '#0c1024',
-          card:    '#111830',
-          border:  '#1e3460',
-          hover:   '#182548',
-          muted:   '#2a3f6e',
+          bg:      '#f0f2f5',
+          surface: '#ffffff',
+          card:    '#ffffff',
+          border:  '#e2e8f0',
+          hover:   '#f8fafc',
+          muted:   '#64748b',
+          primary: '#1e3a5f',
+          accent:  '#f59e0b'
         },
       },
       fontFamily: {

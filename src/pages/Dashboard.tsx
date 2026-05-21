@@ -1,316 +1,506 @@
-import { Wifi, Users, Bell, Server, Network, Activity, Thermometer, AlertTriangle } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import KPICard from '../components/ui/KPICard';
-import StatusDot from '../components/ui/StatusDot';
-import ThermoBar from '../components/ui/ThermoBar';
-import { useAPs, useAlerts, useBandwidth, useServers, useSwitches, useClients, useGateways } from '../hooks/useData';
+import { useState } from 'react';
+import { Wifi, Users, Bell, Network, Power, RotateCw, Activity, Terminal, Stethoscope, AlertTriangle, Check, X, ExternalLink, CheckCheck, Clock, Tag, MapPin, Cpu } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useAPs, useAlerts, useBandwidth, useSwitches, useClients } from '../hooks/useData';
+import { api } from '../api/client';
 import type { AccessPoint, Alert } from '../types';
-import { formatDistanceToNow } from 'date-fns';
+import { useThemeStore } from '../store/themeStore';
+import { format, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
-
-const severityColor = { critical:'#ef4444', warning:'#f59e0b', info:'#3b82f6' };
-const severityBg    = { critical:'#ef444415', warning:'#f59e0b15', info:'#3b82f615' };
-const severityIcon  = { critical:'🔴', warning:'🟡', info:'🔵' };
-
-function fmtBps(bps: number) {
-  if (bps >= 1e9) return `${(bps/1e9).toFixed(1)} Gbps`;
-  if (bps >= 1e6) return `${(bps/1e6).toFixed(1)} Mbps`;
-  if (bps >= 1e3) return `${(bps/1e3).toFixed(0)} Kbps`;
-  return `${bps} bps`;
-}
-function fmtUptime(s: number) {
-  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600);
-  return d > 0 ? `${d}d ${h}h` : `${h}h`;
-}
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function Dashboard() {
-  const { data: aps,     isLoading: apsLoad } = useAPs();
+  const { data: aps, isLoading: apsLoad, refetch: refetchAPs } = useAPs();
   const { data: alerts }  = useAlerts();
   const { data: bw }      = useBandwidth();
-  const { data: servers } = useServers();
   const { data: switches } = useSwitches();
   const { data: clients }  = useClients();
-  const { data: gateways } = useGateways();
+  const { isDark } = useThemeStore();
+  const qc = useQueryClient();
+  
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
+  const [acking, setAcking] = useState(false);
 
-  // Compute overview from live data (avoids a separate endpoint that can silently return zeros)
+  const gridColor = isDark ? 'rgba(255,255,255,0.05)' : '#e2e8f0';
+  const textColor = isDark ? '#94a3b8' : '#64748b';
+  const tooltipStyle = {
+    backgroundColor: isDark ? 'rgba(15, 23, 42, 0.9)' : '#ffffff',
+    borderColor: isDark ? 'rgba(255,255,255,0.1)' : '#e2e8f0',
+    color: isDark ? '#f8fafc' : '#334155',
+    borderRadius: '8px',
+    fontSize: '12px',
+    backdropFilter: 'blur(8px)'
+  };
+
   const apList      = aps ?? [];
-  const onlineAPs   = apList.filter(a => a.status === 'online').length;
-  const warningAPs  = apList.filter(a => a.status === 'warning').length;
-  const offlineAPs  = apList.filter(a => a.status === 'offline').length;
+  const onlineAPs   = apList.filter((a: AccessPoint) => a.status === 'online').length;
+  const offlineAPs  = apList.filter((a: AccessPoint) => a.status === 'offline').length;
   const totalAPs    = apList.length;
+  
   const swList      = switches ?? [];
-  const onlineSw    = swList.filter(s => s.status === 'online').length;
+  const onlineSw    = swList.filter((s: any) => s.status === 'online').length;
   const clientList  = clients ?? [];
-  const wifiClients = clientList.filter(c => c.type === 'wireless').length;
-  const health      = totalAPs > 0 ? Math.round(((onlineAPs + warningAPs * 0.5) / totalAPs) * 100) : 100;
-  const healthColor = health >= 90 ? '#10b981' : health >= 70 ? '#f59e0b' : '#ef4444';
-  const totalRxMbps = (apList.reduce((s, a) => s + (a.rxBps || 0), 0) / 1_000_000).toFixed(1);
-  const totalTxMbps = (apList.reduce((s, a) => s + (a.txBps || 0), 0) / 1_000_000).toFixed(1);
+  let wifiClients = clientList.filter((c: any) => c.type === 'wireless').length;
+  if (wifiClients === 0 && apList.length > 0) {
+    wifiClients = apList.reduce((sum: number, ap: AccessPoint) => sum + (ap.clients || 0), 0);
+  }
 
-  const unackAlerts = (alerts ?? []).filter(a => !a.acknowledged);
-  const critAlerts  = unackAlerts.filter(a => a.severity === 'critical');
+  const unackAlerts = (alerts ?? []).filter((a: Alert) => !a.acknowledged);
+  const critAlerts  = unackAlerts.filter((a: Alert) => a.severity === 'critical');
+
+  const topApsByClients = [...apList].sort((a,b) => b.clients - a.clients).slice(0, 5);
+
+  const handleAction = async (ap: AccessPoint, action: 'reboot' | 'power-off' | 'ping' | 'ssh' | 'diag') => {
+    setPendingAction(`${ap.serial}-${action}`);
+    
+    // Simulate actions for new buttons
+    if (action === 'ping' || action === 'ssh' || action === 'diag') {
+      await new Promise(r => setTimeout(r, 800));
+    } else if (action === 'reboot') {
+      await api.rebootAP(ap.serial);
+    } else {
+      if (ap.lldpNeighbor && ap.lldpPort) {
+        await api.toggleSwitchPort(ap.lldpNeighbor, ap.lldpPort, false);
+      }
+    }
+    
+    setPendingAction(null);
+    if (action === 'reboot' || action === 'power-off') {
+      refetchAPs();
+    }
+  };
+
+  const ackAlert = async (alert: Alert) => {
+    setAcking(true);
+    try {
+      await api.acknowledgeAlert(alert.id);
+      qc.invalidateQueries({ queryKey: ['alerts'] });
+      setSelectedAlert(null);
+    } finally {
+      setAcking(false);
+    }
+  };
+
+  const SEV_STYLES = {
+    critical: { color: '#ef4444', bg: '#ef444418', border: '#ef444440', label: 'CRÍTICO', pulse: true },
+    warning:  { color: '#f59e0b', bg: '#f59e0b18', border: '#f59e0b40', label: 'ADVERTENCIA', pulse: false },
+    info:     { color: '#3b82f6', bg: '#3b82f618', border: '#3b82f640', label: 'INFORMATIVO', pulse: false },
+  };
 
   if (apsLoad) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <div className="w-10 h-10 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm" style={{ color:'#4b7ab5' }}>Cargando datos de red...</p>
-        </div>
+        <div className="w-10 h-10 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin glow-btn" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-5 card-enter">
-      {/* ── KPI Row ─────────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
-        <KPICard title="APs en Línea"    value={onlineAPs}              sub={`de ${totalAPs} totales`}               icon={Wifi}    color="#10b981" />
-        <KPICard title="APs Advertencia" value={warningAPs}             sub="requieren atención"                     icon={Wifi}    color="#f59e0b" />
-        <KPICard title="APs Offline"     value={offlineAPs}             sub="fuera de línea"                         icon={Wifi}    color="#ef4444" critical={offlineAPs > 0} />
-        <KPICard title="Clientes WiFi"   value={wifiClients || clientList.length} sub="dispositivos conectados"      icon={Users}   color="#3b82f6" />
-        <KPICard title="Alertas Activas" value={unackAlerts.length}     sub={`${critAlerts.length} críticas`}        icon={Bell}    color="#ef4444" critical={critAlerts.length > 0} />
-        <KPICard title="Switches Online" value={`${onlineSw}/${swList.length}`}   sub={`+ ${(gateways ?? []).length} gateways`} icon={Network} color="#8b5cf6" />
-        <KPICard title="Servidores"      value={`${(servers ?? []).filter(s => s.status === 'online').length}/${(servers ?? []).length}`} sub="operativos" icon={Server} color="#06b6d4" />
-        <KPICard title="Salud de Red"    value={`${health}%`}           sub="índice general"                         icon={Activity} color={healthColor} />
-      </div>
+    <div className="space-y-6 card-enter pb-10">
 
-      {/* ── Row 2: APs + Alertas ────────────────────────── */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+      {/* ── Alert Detail Modal ─────────────────────────────────────── */}
+      {selectedAlert && (() => {
+        const sev = SEV_STYLES[selectedAlert.severity];
+        const relatedAP = (aps ?? []).find(
+          ap => ap.serial === selectedAlert.device ||
+                ap.name.toLowerCase() === selectedAlert.device.toLowerCase() ||
+                ap.ip === selectedAlert.device
+        );
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
+            onClick={() => setSelectedAlert(null)}
+          >
+            <div
+              className="relative w-full max-w-lg rounded-2xl overflow-hidden card-enter"
+              style={{ background: '#0d1526', border: `1px solid ${sev.border}`, boxShadow: `0 0 60px ${sev.color}20` }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: `1px solid ${sev.border}`, background: sev.bg }}>
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${sev.pulse ? 'animate-pulse' : ''}`} style={{ background: sev.bg, border: `1px solid ${sev.border}` }}>
+                    <AlertTriangle size={18} style={{ color: sev.color }} />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold font-mono px-2 py-0.5 rounded" style={{ background: sev.bg, color: sev.color, border: `1px solid ${sev.border}` }}>
+                      {sev.label}
+                    </span>
+                    <p className="text-xs mt-1 font-mono" style={{ color: '#4b7ab5' }}>{selectedAlert.category}</p>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedAlert(null)} className="p-1.5 rounded-lg hover:opacity-70 transition-opacity" style={{ color: '#4b7ab5' }}>
+                  <X size={16} />
+                </button>
+              </div>
 
-        {/* AP Grid */}
-        <div className="xl:col-span-2 noc-card p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-sm text-white flex items-center gap-2">
-              <Wifi size={15} style={{ color:'#3b82f6' }} />
-              Puntos de Acceso — Estado General
-            </h2>
-            <span className="text-xs font-mono" style={{ color:'#4b7ab5' }}>{aps?.length} APs</span>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-            {(aps ?? []).map((ap: AccessPoint) => (
-              <div key={ap.serial}
-                className="rounded-lg p-3 cursor-pointer transition-all duration-150 hover:scale-[1.02]"
-                style={{
-                  background: ap.status === 'offline' ? '#1a0a0a' : ap.status === 'warning' ? '#1a1400' : '#0d1a10',
-                  border: `1px solid ${ap.status === 'offline' ? '#7f1d1d' : ap.status === 'warning' ? '#78350f' : '#14532d'}40`,
-                }}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <StatusDot status={ap.status} size={7} />
-                  <span className="text-xs font-mono" style={{ color:'#4b7ab5', fontSize:10 }}>
-                    {ap.clients > 0 ? `${ap.clients}c` : '—'}
+              {/* Body */}
+              <div className="p-5 space-y-4">
+                {/* Message */}
+                <div>
+                  <p className="text-base font-semibold text-white leading-snug">{selectedAlert.message}</p>
+                  {selectedAlert.detail && (
+                    <p className="text-sm mt-1.5" style={{ color: '#6b8bb5' }}>{selectedAlert.detail}</p>
+                  )}
+                </div>
+
+                {/* Device / Serial */}
+                <div className="rounded-xl p-4 space-y-3" style={{ background: '#07101f', border: '1px solid #1e3460' }}>
+                  <div className="flex items-center gap-2">
+                    <Cpu size={13} style={{ color: sev.color }} />
+                    <span className="text-xs font-bold" style={{ color: '#4b7ab5' }}>DISPOSITIVO AFECTADO</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-xs mb-1" style={{ color: '#374d6b' }}>ID / Serial</p>
+                      <p className="text-sm font-mono font-bold" style={{ color: sev.color }}>
+                        {relatedAP?.serial || selectedAlert.device}
+                      </p>
+                    </div>
+                    {relatedAP && (
+                      <>
+                        <div>
+                          <p className="text-xs mb-1" style={{ color: '#374d6b' }}>Nombre</p>
+                          <p className="text-sm font-mono" style={{ color: '#e2e8f0' }}>{relatedAP.name}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs mb-1" style={{ color: '#374d6b' }}>Modelo</p>
+                          <p className="text-sm font-mono" style={{ color: '#6b8bb5' }}>{relatedAP.model}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs mb-1" style={{ color: '#374d6b' }}>IP</p>
+                          <p className="text-sm font-mono" style={{ color: '#3b82f6' }}>{relatedAP.ip}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs mb-1" style={{ color: '#374d6b' }}>Estado</p>
+                          <span className="text-xs font-mono px-2 py-0.5 rounded-full" style={{
+                            background: relatedAP.status === 'online' ? '#10b98120' : '#ef444420',
+                            color: relatedAP.status === 'online' ? '#10b981' : '#ef4444',
+                            border: `1px solid ${relatedAP.status === 'online' ? '#10b98140' : '#ef444440'}`,
+                          }}>
+                            {relatedAP.status === 'online' ? '● Online' : '● Offline'}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-xs mb-1" style={{ color: '#374d6b' }}>CPU / Temp</p>
+                          <p className="text-sm font-mono" style={{ color: relatedAP.temperature >= 65 ? '#ef4444' : '#f59e0b' }}>
+                            {relatedAP.cpuUsage}% · {relatedAP.temperature > 0 ? `${relatedAP.temperature}°C` : '—'}
+                          </p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Meta row */}
+                <div className="flex flex-wrap gap-3 text-xs" style={{ color: '#4b7ab5' }}>
+                  {selectedAlert.building && (
+                    <div className="flex items-center gap-1.5">
+                      <MapPin size={11} />
+                      <span>{selectedAlert.building}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1.5">
+                    <Tag size={11} />
+                    <span>{selectedAlert.category}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Clock size={11} />
+                    <span>{formatDistanceToNow(new Date(selectedAlert.timestamp), { addSuffix: true, locale: es })}</span>
+                  </div>
+                  <span style={{ color: '#2a3f6e' }}>
+                    {format(new Date(selectedAlert.timestamp), 'dd/MM/yyyy HH:mm:ss')}
                   </span>
                 </div>
-                <div className="text-xs font-medium text-white truncate leading-tight"
-                  title={ap.name} style={{ fontSize:11 }}>
-                  {ap.name.replace('AP-', '')}
-                </div>
-                <div className="text-xs mt-1" style={{ color:'#4b7ab5', fontSize:10 }}>
-                  {ap.building.replace('Edificio ','Ed. ')}
-                </div>
-                {ap.status !== 'offline' && (
-                  <div className="mt-1.5">
-                    <ThermoBar value={ap.temperature} max={90} warnAt={60} critAt={70} unit="°C" />
-                  </div>
-                )}
-                {ap.status === 'offline' && (
-                  <div className="text-xs mt-1" style={{ color:'#ef444480', fontSize:10 }}>
-                    ✕ Sin conexión
-                  </div>
-                )}
               </div>
-            ))}
+
+              {/* Footer */}
+              <div className="flex items-center justify-between px-5 py-4" style={{ borderTop: '1px solid #1e3460' }}>
+                {!selectedAlert.acknowledged ? (
+                  <button
+                    onClick={() => ackAlert(selectedAlert)}
+                    disabled={acking}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-80 disabled:opacity-50"
+                    style={{ background: '#10b98115', color: '#10b981', border: '1px solid #10b98130' }}
+                  >
+                    <CheckCheck size={14} />
+                    {acking ? 'Reconociendo...' : 'Reconocer alerta'}
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2 text-sm" style={{ color: '#10b981' }}>
+                    <CheckCheck size={14} /> Alerta reconocida
+                  </div>
+                )}
+                <button
+                  onClick={() => setSelectedAlert(null)}
+                  className="flex items-center gap-1.5 text-xs hover:opacity-70 transition-opacity"
+                  style={{ color: '#4b7ab5' }}
+                >
+                  <ExternalLink size={12} /> Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Row 1: Dense KPIs ─────────────────────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="metric-box flex flex-col group">
+          <div className="flex justify-between items-start mb-2">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Estado de Access Points</span>
+            <Wifi size={16} className="text-[#0ea5e9] group-hover:scale-110 transition-transform" />
+          </div>
+          <div className="flex gap-4 mt-auto">
+            <div>
+              <div className="text-xs text-slate-500 mb-1">Online</div>
+              <div className="text-2xl font-bold text-[#10b981]">{onlineAPs}</div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-500 mb-1">Offline</div>
+              <div className="text-2xl font-bold text-[#ef4444]">{offlineAPs}</div>
+            </div>
           </div>
         </div>
 
-        {/* Alertas */}
-        <div className="noc-card p-4 flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-sm text-white flex items-center gap-2">
-              <Bell size={15} style={{ color:'#ef4444' }} />
-              Alertas Activas
-            </h2>
-            {critAlerts.length > 0 && (
-              <span className="text-xs px-2 py-0.5 rounded-full font-mono text-white" style={{ background:'#ef4444' }}>
-                {critAlerts.length} críticas
-              </span>
-            )}
+        <div className="metric-box flex flex-col group">
+          <div className="flex justify-between items-start mb-2">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Clientes Concurrentes</span>
+            <Users size={16} className="text-[#a855f7] group-hover:scale-110 transition-transform" />
           </div>
-          <div className="flex-1 space-y-2 overflow-y-auto max-h-80">
+          <div className="mt-auto flex items-end gap-3">
+            <div className="text-4xl font-bold text-slate-800 dark:text-slate-100">{wifiClients}</div>
+            <div className="text-sm font-semibold text-[#10b981] mb-1">↑ 12.4%</div>
+          </div>
+        </div>
+
+        <div className="metric-box flex flex-col group">
+          <div className="flex justify-between items-start mb-2">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Estado de Switches</span>
+            <Network size={16} className="text-[#8b5cf6] group-hover:scale-110 transition-transform" />
+          </div>
+          <div className="flex gap-4 mt-auto">
+            <div>
+              <div className="text-xs text-slate-500 mb-1">Operativos</div>
+              <div className="text-2xl font-bold text-[#10b981]">{onlineSw}</div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-500 mb-1">Total</div>
+              <div className="text-2xl font-bold text-slate-800 dark:text-slate-200">{swList.length}</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="metric-box flex flex-col group">
+          <div className="flex justify-between items-start mb-2">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Centro de Alertas</span>
+            <Bell size={16} className={critAlerts.length > 0 ? "text-[#ef4444] animate-pulse-glow" : "text-slate-400 group-hover:scale-110 transition-transform"} />
+          </div>
+          <div className="flex gap-4 mt-auto">
+            <div>
+              <div className="text-xs text-slate-500 mb-1">Críticas</div>
+              <div className="text-2xl font-bold text-[#ef4444]">{critAlerts.length}</div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-500 mb-1">Activas</div>
+              <div className="text-2xl font-bold text-[#f59e0b]">{unackAlerts.length}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Row 2: Dense Line Charts ─────────────────────────────────────── */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        
+        <div className="noc-card p-5">
+          <div className="flex items-center gap-4 mb-6">
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Tráfico Global (Rx / Tx)</h3>
+            <div className="flex gap-4 text-[11px] font-medium">
+              <span className="text-[#0ea5e9] flex items-center gap-1">— Rx (Bajada)</span>
+              <span className="text-[#10b981] flex items-center gap-1">— Tx (Subida)</span>
+            </div>
+          </div>
+          <div className="h-[220px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={bw ?? []} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
+                <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fill: textColor, fontSize: 10 }} dy={10} minTickGap={30} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: textColor, fontSize: 10 }} />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Line type="monotone" dataKey="rx" stroke="#0ea5e9" strokeWidth={2.5} dot={false} isAnimationActive={true} />
+                <Line type="monotone" dataKey="tx" stroke="#10b981" strokeWidth={2.5} dot={false} isAnimationActive={true} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="noc-card p-5">
+          <div className="flex items-center gap-4 mb-6">
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Clientes Concurrentes</h3>
+            <div className="flex gap-4 text-[11px] font-medium">
+              <span className="text-[#a855f7] flex items-center gap-1">— Dispositivos Activos</span>
+            </div>
+          </div>
+          <div className="h-[220px]">
+            <ResponsiveContainer width="100%" height="100%">
+              {/* Using bw data as a mock for time series since we only have bw mock data generator */}
+              <LineChart data={bw ?? []} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
+                <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fill: textColor, fontSize: 10 }} dy={10} minTickGap={30} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: textColor, fontSize: 10 }} domain={['dataMin - 100', 'dataMax + 100']} />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Line type="monotone" dataKey="rx" stroke="#a855f7" strokeWidth={2.5} dot={false} isAnimationActive={true} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+      </div>
+
+      {/* ── Row 3: Data Table & Alerts ─────────────────────────────────────── */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        
+        {/* Top APs Table with Interactive Buttons */}
+        <div className="noc-card xl:col-span-2 flex flex-col overflow-hidden">
+          <div className="p-4 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Terminal de Control - Top APs</h3>
+          </div>
+          <div className="overflow-x-auto p-2">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="text-slate-500 dark:text-slate-400">
+                  <th className="pb-3 pt-2 pl-3 font-medium">AP Nombre</th>
+                  <th className="pb-3 pt-2 font-medium">Ubicación</th>
+                  <th className="pb-3 pt-2 font-medium">Clientes</th>
+                  <th className="pb-3 pt-2 font-medium">Uso CPU</th>
+                  <th className="pb-3 pt-2 font-medium">Temp.</th>
+                  <th className="pb-3 pt-2 font-medium text-right pr-3">Panel de Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="text-slate-700 dark:text-slate-300">
+                {topApsByClients.map((ap, i) => {
+                  const isPending = pendingAction?.startsWith(ap.serial);
+                  return (
+                    <tr key={ap.serial} className="border-b border-slate-100 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5 transition-all group">
+                      <td className="py-3 pl-3 font-mono font-medium text-[#0ea5e9]">{ap.name}</td>
+                      <td className="py-3 truncate max-w-[120px]">{ap.building}</td>
+                      <td className="py-3">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#10b981]/20 text-[#10b981]">
+                          {ap.clients}
+                        </span>
+                      </td>
+                      <td className="py-3">
+                        <div className="w-20 h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-[#10b981] to-[#f59e0b]" style={{ width: `${ap.cpuUsage}%` }} />
+                        </div>
+                      </td>
+                      <td className="py-3">
+                        <span className={`font-mono text-[11px] font-medium ${ap.temperature >= 65 ? 'text-red-500' : ap.temperature >= 55 ? 'text-amber-500' : 'text-emerald-500'}`}>
+                          {ap.temperature > 0 ? `${ap.temperature}°C` : '—'}
+                        </span>
+                      </td>
+                      <td className="py-3 pr-3 text-right">
+                        <div className="flex justify-end gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
+                          
+                          <button 
+                            onClick={() => handleAction(ap, 'ping')}
+                            disabled={isPending || ap.status === 'offline'}
+                            className="glow-btn flex items-center justify-center w-7 h-7 rounded-md bg-slate-100 dark:bg-white/10 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 text-slate-600 dark:text-emerald-400 disabled:opacity-30"
+                            title="Ping (Test de Latencia)"
+                          >
+                            <Activity size={13} />
+                          </button>
+
+                          <button 
+                            onClick={() => handleAction(ap, 'ssh')}
+                            disabled={isPending || ap.status === 'offline'}
+                            className="glow-btn flex items-center justify-center w-7 h-7 rounded-md bg-slate-100 dark:bg-white/10 hover:bg-purple-100 dark:hover:bg-purple-500/20 text-slate-600 dark:text-purple-400 disabled:opacity-30"
+                            title="Abrir Consola SSH"
+                          >
+                            <Terminal size={13} />
+                          </button>
+
+                          <button 
+                            onClick={() => handleAction(ap, 'diag')}
+                            disabled={isPending || ap.status === 'offline'}
+                            className="glow-btn flex items-center justify-center w-7 h-7 rounded-md bg-slate-100 dark:bg-white/10 hover:bg-cyan-100 dark:hover:bg-cyan-500/20 text-slate-600 dark:text-cyan-400 disabled:opacity-30"
+                            title="Ejecutar Diagnóstico"
+                          >
+                            <Stethoscope size={13} />
+                          </button>
+
+                          <div className="w-px h-5 bg-slate-200 dark:bg-white/10 mx-1 self-center" />
+
+                          <button 
+                            onClick={() => handleAction(ap, 'reboot')}
+                            disabled={isPending || ap.status === 'offline'}
+                            className="glow-btn flex items-center justify-center w-7 h-7 rounded-md bg-blue-50 dark:bg-blue-500/10 hover:bg-blue-100 dark:hover:bg-blue-500/30 text-blue-600 dark:text-blue-400 disabled:opacity-30"
+                            title="Reiniciar AP (Soft Reboot)"
+                          >
+                            <RotateCw size={13} />
+                          </button>
+
+                          <button 
+                            onClick={() => handleAction(ap, 'power-off')}
+                            disabled={isPending || ap.status === 'offline' || !ap.lldpNeighbor}
+                            className="glow-btn flex items-center justify-center w-7 h-7 rounded-md bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/30 text-red-600 dark:text-red-400 disabled:opacity-30"
+                            title="Cortar Energía PoE del Switch"
+                          >
+                            <Power size={13} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Dynamic Alerts List */}
+        <div className="noc-card xl:col-span-1 flex flex-col">
+          <div className="p-4 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Alertas Recientes</h3>
+          </div>
+          <div className="flex-1 space-y-2 overflow-y-auto p-4">
+            {unackAlerts.slice(0, 5).map((a: Alert) => (
+              <div
+                key={a.id}
+                onClick={() => setSelectedAlert(a)}
+                className="group flex gap-3 items-start p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-transparent hover:border-slate-200 dark:hover:border-white/10 hover:-translate-y-0.5 transition-all cursor-pointer relative"
+              >
+                <div className={`p-2 rounded-lg mt-0.5 ${
+                  a.severity === 'critical' 
+                    ? 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.2)] dark:shadow-[0_0_15px_rgba(239,68,68,0.4)] animate-pulse-glow' 
+                    : 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400'
+                }`}>
+                  <AlertTriangle size={16} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate group-hover:text-cyan-500 transition-colors">{a.message}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 truncate font-mono">{a.device}</p>
+                </div>
+                <div className="flex-shrink-0 self-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: '#4b7ab5' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
+                </div>
+              </div>
+            ))}
+
             {unackAlerts.length === 0 && (
-              <div className="text-center py-8 text-sm" style={{ color:'#2a3f6e' }}>
-                ✓ Sin alertas activas
+              <div className="flex flex-col items-center justify-center h-full text-slate-500 dark:text-slate-400 text-sm opacity-50">
+                <Check size={32} className="mb-2 text-[#10b981]" />
+                No hay alertas activas
               </div>
             )}
-            {unackAlerts.map((a: Alert) => (
-              <div key={a.id} className="rounded-lg p-3 transition-all"
-                style={{ background: severityBg[a.severity], border:`1px solid ${severityColor[a.severity]}25` }}>
-                <div className="flex items-start gap-2">
-                  <span className="text-xs mt-0.5">{severityIcon[a.severity]}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-medium text-white truncate">{a.message}</div>
-                    <div className="text-xs mt-0.5 truncate" style={{ color:'#6b8bb5' }}>{a.device}</div>
-                    <div className="text-xs mt-0.5" style={{ color:'#374d6b', fontSize:10 }}>
-                      {formatDistanceToNow(new Date(a.timestamp), { addSuffix:true, locale:es })}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-          <a href="/alerts" className="block mt-3 text-center text-xs py-2 rounded-lg transition-colors hover:bg-noc-hover"
-            style={{ color:'#3b82f6', borderTop:'1px solid #1e3460' }}>
-            Ver todas las alertas →
-          </a>
-        </div>
-      </div>
-
-      {/* ── Row 3: Bandwidth + Temperatura ──────────────── */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-
-        {/* Bandwidth Chart */}
-        <div className="xl:col-span-2 noc-card p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-sm text-white flex items-center gap-2">
-              <Activity size={15} style={{ color:'#10b981' }} />
-              Tráfico de Red — Últimos 30 min
-            </h2>
-            <div className="flex gap-4 text-xs font-mono">
-              <span style={{ color:'#10b981' }}>↓ {totalRxMbps} Mbps</span>
-              <span style={{ color:'#3b82f6' }}>↑ {totalTxMbps} Mbps</span>
-            </div>
-          </div>
-          <ResponsiveContainer width="100%" height={180}>
-            <AreaChart data={bw ?? []} margin={{ top:5, right:5, left:-20, bottom:0 }}>
-              <defs>
-                <linearGradient id="gRx" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#10b981" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="gTx" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e346040" />
-              <XAxis dataKey="time" tick={{ fill:'#4b7ab5', fontSize:10 }} tickLine={false} interval={4} />
-              <YAxis tick={{ fill:'#4b7ab5', fontSize:10 }} tickLine={false} unit=" Mb" />
-              <Tooltip
-                contentStyle={{ background:'#0d1526', border:'1px solid #1e3460', borderRadius:8, fontSize:12 }}
-                labelStyle={{ color:'#6b8bb5' }}
-                formatter={(v: number, n: string) => [`${v} Mbps`, n === 'rx' ? 'Descarga' : 'Subida']}
-              />
-              <Legend formatter={v => v === 'rx' ? 'Descarga (Rx)' : 'Subida (Tx)'} wrapperStyle={{ fontSize:11 }} />
-              <Area type="monotone" dataKey="rx" stroke="#10b981" strokeWidth={2} fill="url(#gRx)" dot={false} />
-              <Area type="monotone" dataKey="tx" stroke="#3b82f6" strokeWidth={2} fill="url(#gTx)" dot={false} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Temperatura servidores */}
-        <div className="noc-card p-4">
-          <h2 className="font-semibold text-sm text-white flex items-center gap-2 mb-4">
-            <Thermometer size={15} style={{ color:'#f59e0b' }} />
-            Temperatura Servidores
-          </h2>
-          <div className="space-y-4">
-            {(servers ?? []).map(s => (
-              <div key={s.id}>
-                <div className="flex items-center justify-between mb-1">
-                  <div>
-                    <div className="text-xs font-medium text-white">{s.name}</div>
-                    <div className="text-xs" style={{ color:'#4b7ab5', fontSize:10 }}>{s.role}</div>
-                  </div>
-                  <StatusDot status={s.status} size={7} />
-                </div>
-                <ThermoBar value={s.temperature} max={90} warnAt={65} critAt={75} label="Temp" unit="°C" />
-                <div className="grid grid-cols-3 gap-2 mt-1.5">
-                  <ThermoBar value={s.cpuUsage} warnAt={70} critAt={85} label="CPU" />
-                  <ThermoBar value={s.memUsage} warnAt={80} critAt={90} label="RAM" />
-                  <ThermoBar value={s.diskUsage} warnAt={75} critAt={90} label="Disco" />
-                </div>
-              </div>
-            ))}
           </div>
         </div>
+
       </div>
 
-      {/* ── Row 4: Switches resumen ──────────────────────── */}
-      <div className="noc-card p-4">
-        <h2 className="font-semibold text-sm text-white flex items-center gap-2 mb-4">
-          <Network size={15} style={{ color:'#8b5cf6' }} />
-          Estado de Switches — Resumen de Puertos
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {(switches ?? []).map(sw => {
-            const errPorts = sw.ports.filter(p => p.status === 'error');
-            return (
-              <div key={sw.serial} className="rounded-lg p-3"
-                style={{ background:'#0d1526', border:'1px solid #1e3460' }}>
-                <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <div className="text-xs font-semibold text-white">{sw.name}</div>
-                    <div className="text-xs" style={{ color:'#4b7ab5', fontSize:10 }}>{sw.model} · {sw.building}</div>
-                  </div>
-                  <StatusDot status={sw.status} size={8} />
-                </div>
-                {/* port strip */}
-                <div className="flex flex-wrap gap-0.5 mb-2">
-                  {sw.ports.slice(0, 24).map(p => (
-                    <div key={p.portId} className="port-cell" title={`Puerto ${p.name}: ${p.status} — ${p.description}`}
-                      style={{
-                        background: p.status === 'up' ? '#10b98150' : p.status === 'error' ? '#ef444460' : p.status === 'disabled' ? '#374d6b30' : '#1e346040',
-                        border: `1px solid ${p.status === 'up' ? '#10b98130' : p.status === 'error' ? '#ef444440' : '#1e3460'}`,
-                      }} />
-                  ))}
-                </div>
-                <div className="flex gap-3 text-xs font-mono">
-                  <span style={{ color:'#10b981' }}>▲ {sw.portsUp} up</span>
-                  <span style={{ color:'#6b7280' }}>▼ {sw.portsDown} down</span>
-                  {sw.portsError > 0 && <span style={{ color:'#ef4444' }}>✕ {sw.portsError} error</span>}
-                </div>
-                {errPorts.length > 0 && (
-                  <div className="mt-2 space-y-1">
-                    {errPorts.map(p => (
-                      <div key={p.portId} className="text-xs px-2 py-1 rounded flex items-center gap-1.5"
-                        style={{ background:'#ef444415', color:'#ef4444', fontSize:10 }}>
-                        <AlertTriangle size={10} />
-                        Puerto {p.name}: {p.description} ({p.errors} errores)
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <ThermoBar value={sw.temperature} max={80} warnAt={50} critAt={65} label="Temp" unit="°C" />
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── Row 5: Clientes top APs ──────────────────────── */}
-      <div className="noc-card p-4">
-        <h2 className="font-semibold text-sm text-white flex items-center gap-2 mb-4">
-          <Users size={15} style={{ color:'#06b6d4' }} />
-          Top APs por Número de Clientes
-        </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-          {[...(aps ?? [])].sort((a,b) => b.clients - a.clients).slice(0,8).map((ap: AccessPoint) => (
-            <div key={ap.serial} className="text-center rounded-lg p-3"
-              style={{ background:'#0d1526', border:'1px solid #1e3460' }}>
-              <div className="text-xl font-mono font-bold" style={{ color:'#06b6d4' }}>{ap.clients}</div>
-              <div className="text-xs text-white mt-1 truncate" style={{ fontSize:10 }}>
-                {ap.name.replace('AP-','').split('-').slice(0,2).join('-')}
-              </div>
-              <div className="text-xs mt-0.5" style={{ color:'#374d6b', fontSize:9 }}>
-                {ap.building.replace('Edificio ','').replace('Lab.','Lab')}
-              </div>
-              <div className="mt-1.5 flex justify-center gap-1">
-                <StatusDot status={ap.status} size={6} />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }

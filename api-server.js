@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Proxy server â€” Aruba Central API
  * Endpoints reales confirmados para la cuenta PUCESE (uswest4).
  */
@@ -22,7 +22,23 @@ const BASE = process.env.ARUBA_BASE_URL || 'https://apigw-uswest4.central.aruban
 app.use(cors({ origin: ['http://localhost:3000', 'http://127.0.0.1:3000'] }));
 app.use(express.json());
 
-/* â”€â”€ Token con auto-refresh â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Caché servidor (evita rate-limit 429 de Aruba) ────────────── */
+const CACHE = new Map(); // key → { data, expiresAt }
+const TTL = {
+  default: 20_000,
+  clients: 30_000,
+  alerts:  10_000,
+};
+function cacheGet(key) {
+  const entry = CACHE.get(key);
+  if (entry && Date.now() < entry.expiresAt) return entry.data;
+  return null;
+}
+function cacheSet(key, data, ttl = TTL.default) {
+  CACHE.set(key, { data, expiresAt: Date.now() + ttl });
+}
+
+/* ── Token con auto-refresh ─────────────────────────────────────── */
 const token = {
   access:    process.env.ARUBA_ACCESS_TOKEN  || '',
   refresh:   process.env.ARUBA_REFRESH_TOKEN || '',
@@ -63,16 +79,49 @@ async function getToken() {
   return token.access;
 }
 
-/* â”€â”€ Fetch helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Fetch helper con retry en 429 + deduplicación ──────────────── */
+const inFlight = new Map(); // dedup — una sola petición en vuelo por URL
+
 async function arubaGet(path, params = {}) {
+  const cacheKey = path + JSON.stringify(params);
+  const cached = cacheGet(cacheKey);
+  if (cached) { console.log(`[CACHE] ${path}`); return cached; }
+
+  // Si ya hay una petición en vuelo para esta URL, reutilizarla
+  if (inFlight.has(cacheKey)) {
+    console.log(`[DEDUP] ${path}`);
+    return inFlight.get(cacheKey);
+  }
+
   const tk  = await getToken();
   const qs  = new URLSearchParams({ limit: 1000, ...params }).toString();
   const url = `${BASE}${path}?${qs}`;
   console.log(`[GET] ${path}`);
-  const res  = await fetch(url, { headers: { Authorization: `Bearer ${tk}` } });
-  const text = await res.text();
-  if (!res.ok) throw new Error(`${res.status}: ${text.slice(0, 200)}`);
-  return JSON.parse(text);
+
+  // Retry automático en 429 (hasta 3 intentos con backoff exponencial)
+  const doFetch = async () => {
+    let lastErr;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) {
+        const wait = 5000 * attempt; // 5s, 10s
+        console.log(`[RETRY] ${path} — esperar ${wait}ms (intento ${attempt + 1})`);
+        await new Promise(r => setTimeout(r, wait));
+      }
+      const res  = await fetch(url, { headers: { Authorization: `Bearer ${tk}` } });
+      const text = await res.text();
+      if (res.status === 429) { lastErr = new Error(`429 rate limit`); continue; }
+      if (!res.ok) throw new Error(`${res.status}: ${text.slice(0, 200)}`);
+      const data = JSON.parse(text);
+      const ttl = path.includes('clients') ? TTL.clients : path.includes('notifications') ? TTL.alerts : TTL.default;
+      cacheSet(cacheKey, data, ttl);
+      return data;
+    }
+    throw lastErr ?? new Error('arubaGet failed after 3 retries');
+  };
+
+  const promise = doFetch().finally(() => inFlight.delete(cacheKey));
+  inFlight.set(cacheKey, promise);
+  return promise;
 }
 
 /* Obtiene TODOS los elementos paginando automÃ¡ticamente */
@@ -568,18 +617,68 @@ app.get('/api/gateways', async (_req, res) => {
   res.json([]);
 });
 
-// Clientes wireless â€” /monitoring/v1/clients/wireless âœ“
+// Clientes wireless — con paginación y manejo de múltiples keys de respuesta
 app.get('/api/clients', async (_req, res) => {
   try {
-    const [wifi, wired] = await Promise.allSettled([
-      arubaGet('/monitoring/v1/clients/wireless', { calculate_total: true }),
-      arubaGet('/monitoring/v1/clients/wired',    { calculate_total: true }),
-    ]);
-    const wirelessList = wifi.status  === 'fulfilled' ? (wifi.value.clients  || []).map(mapClient) : [];
-    const wiredList    = wired.status === 'fulfilled' ? (wired.value.clients || []).map(c => ({ ...mapClient(c), type: 'wired' })) : [];
-    res.json([...wirelessList, ...wiredList]);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+    /* Aruba Central puede usar 'clients' o 'client_list' según versión de firmware/API */
+    const extractClients = (data) => {
+      if (!data) return [];
+      if (Array.isArray(data))               return data;
+      if (Array.isArray(data.clients))       return data.clients;
+      if (Array.isArray(data.client_list))   return data.client_list;
+      if (Array.isArray(data.wlans))         return data.wlans;
+      // Si es objeto desconocido, loguear las keys para depuración
+      console.log('[CLIENTS] Keys en respuesta:', Object.keys(data).join(', '), '— count:', data.count ?? data.total ?? '?');
+      return [];
+    };
+
+    // Intentar primero con arubaGetAll (paginado) usando 'clients', luego 'client_list'
+    let wirelessList = [];
+    let wiredList    = [];
+
+    // — Wireless —
+    try {
+      const rawWifi = await arubaGet('/monitoring/v1/clients/wireless', { calculate_total: true, limit: 1000 });
+      wirelessList = extractClients(rawWifi);
+      // Si hay más páginas, seguir paginando
+      const total = rawWifi?.count ?? rawWifi?.total ?? wirelessList.length;
+      console.log(`[CLIENTS-WIFI] Primeros ${wirelessList.length}/${total}`);
+      if (total > wirelessList.length) {
+        let offset = wirelessList.length;
+        while (offset < total) {
+          const page = await arubaGet('/monitoring/v1/clients/wireless', { limit: 1000, offset, calculate_total: true });
+          const items = extractClients(page);
+          if (!items.length) break;
+          wirelessList = wirelessList.concat(items);
+          offset += items.length;
+        }
+      }
+      console.log(`[CLIENTS-WIFI] Total final: ${wirelessList.length}`);
+    } catch (e) {
+      console.warn('[CLIENTS-WIFI] Error:', e.message);
+    }
+
+    // — Wired —
+    try {
+      const rawWired = await arubaGet('/monitoring/v1/clients/wired', { calculate_total: true, limit: 1000 });
+      wiredList = extractClients(rawWired);
+      console.log(`[CLIENTS-WIRED] Total: ${wiredList.length}`);
+    } catch (e) {
+      console.warn('[CLIENTS-WIRED] Error:', e.message);
+    }
+
+    const result = [
+      ...wirelessList.map(mapClient),
+      ...wiredList.map(c => ({ ...mapClient(c), type: 'wired' })),
+    ];
+    console.log(`[CLIENTS] Enviando ${result.length} clientes`);
+    res.json(result);
+  } catch (e) {
+    console.error('[CLIENTS] Error fatal:', e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
+
 
 // Alertas / Notificaciones â€” /central/v1/notifications âœ“
 app.get('/api/alerts', async (_req, res) => {
@@ -693,6 +792,22 @@ app.get('/api/events', async (_req, res) => {
     const data = await arubaGet('/monitoring/v1/events', { limit: 50 });
     res.json(data.events || data || []);
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── DEBUG: ver respuesta raw de Aruba para clientes ──────────────
+app.get('/api/debug-clients', async (_req, res) => {
+  try {
+    const raw = await arubaGet('/monitoring/v1/clients/wireless', { calculate_total: true, limit: 10 });
+    res.json({
+      keys: Object.keys(raw || {}),
+      count_field: raw?.count,
+      total_field: raw?.total,
+      first_client_keys: (raw?.clients?.[0] || raw?.client_list?.[0]) ? Object.keys(raw?.clients?.[0] || raw?.client_list?.[0] || {}) : [],
+      sample_raw: raw,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message, stack: e.stack?.split('\n').slice(0,5) });
+  }
 });
 
 app.listen(PORT, () => {

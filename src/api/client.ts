@@ -62,7 +62,7 @@ export const api = {
     if (await proxyAvailable()) {
       try {
         const { data } = await http.get<AccessPoint[]>('/aps');
-        if (data?.length) return data;
+        if (Array.isArray(data)) return data;
       } catch (e) { console.error('[aps]', e); }
     }
     return mockAPs;
@@ -92,7 +92,7 @@ export const api = {
     if (await proxyAvailable()) {
       try {
         const { data } = await http.get<NetworkSwitch[]>('/switches');
-        if (data?.length) return data;
+        if (Array.isArray(data)) return data;
       } catch (e) { console.error('[switches]', e); }
     }
     return mockSwitches;
@@ -108,7 +108,7 @@ export const api = {
     if (await proxyAvailable()) {
       try {
         const { data } = await http.get<Client[]>('/clients');
-        if (data?.length) return data;
+        if (Array.isArray(data)) return data;
       } catch (e) { console.error('[clients]', e); }
     }
     return mockClients;
@@ -118,7 +118,7 @@ export const api = {
     if (await proxyAvailable()) {
       try {
         const { data } = await http.get<Alert[]>('/alerts');
-        if (data?.length) return data;
+        if (Array.isArray(data)) return data;
       } catch (e) { console.error('[alerts]', e); }
     }
     return mockAlertsFallback;

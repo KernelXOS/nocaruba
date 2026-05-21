@@ -1,24 +1,25 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useAPs, useClients } from '../hooks/useData';
 import type { AccessPoint } from '../types';
-import { Thermometer, Wifi, Users, RefreshCw, ZoomIn, ZoomOut, Layers } from 'lucide-react';
+import { Thermometer, Wifi, Users, RefreshCw, ZoomIn, ZoomOut, Layers, Target, Activity, AlertTriangle, Power } from 'lucide-react';
+import { useThemeStore } from '../store/themeStore';
 
 /* ── Zonas del campus PUCESE (posición relativa 0–1) ───────── */
 const ZONES: { key: string; label: string; x: number; y: number; w: number; h: number; color: string }[] = [
-  { key:'campus-admin',    label:'Administrativo',      x:0.02, y:0.04, w:0.22, h:0.30, color:'#1e3460' },
-  { key:'campus-biblio',   label:'Biblioteca Central',  x:0.26, y:0.04, w:0.18, h:0.30, color:'#1e3460' },
-  { key:'campus-aulas-a',  label:'Bloque Aulas A',      x:0.02, y:0.38, w:0.20, h:0.28, color:'#1a2f55' },
-  { key:'campus-aulas-b',  label:'Bloque Aulas B',      x:0.24, y:0.38, w:0.20, h:0.28, color:'#1a2f55' },
-  { key:'campus-lab',      label:'Laboratorios',        x:0.46, y:0.04, w:0.18, h:0.30, color:'#1e3460' },
-  { key:'campus-cafe',     label:'Cafetería / Bar',     x:0.46, y:0.38, w:0.10, h:0.28, color:'#1a2f55' },
-  { key:'campus-gym',      label:'Gimnasio',            x:0.58, y:0.38, w:0.08, h:0.28, color:'#1a2f55' },
-  { key:'santacruz-b1',    label:'SC Bloque 1',         x:0.68, y:0.04, w:0.14, h:0.30, color:'#1e2a4a' },
-  { key:'santacruz-b2',    label:'SC Bloque 2',         x:0.84, y:0.04, w:0.14, h:0.30, color:'#1e2a4a' },
-  { key:'santacruz-aulas', label:'SC Aulas',            x:0.68, y:0.38, w:0.30, h:0.28, color:'#1a2540' },
-  { key:'tachina-of',      label:'Tachina Oficinas',    x:0.02, y:0.70, w:0.22, h:0.26, color:'#1e2a40' },
-  { key:'tachina-patio',   label:'Tachina Patio',       x:0.26, y:0.70, w:0.18, h:0.26, color:'#1e2a40' },
-  { key:'tachina-ext',     label:'Tachina Exterior',    x:0.46, y:0.70, w:0.20, h:0.26, color:'#1a2035' },
-  { key:'tachina-otros',   label:'Tachina Otros',       x:0.68, y:0.70, w:0.30, h:0.26, color:'#1a2035' },
+  { key:'campus-admin',    label:'Administrativo',      x:0.02, y:0.04, w:0.22, h:0.30, color:'#3b82f6' },
+  { key:'campus-biblio',   label:'Biblioteca Central',  x:0.26, y:0.04, w:0.18, h:0.30, color:'#3b82f6' },
+  { key:'campus-aulas-a',  label:'Bloque Aulas A',      x:0.02, y:0.38, w:0.20, h:0.28, color:'#8b5cf6' },
+  { key:'campus-aulas-b',  label:'Bloque Aulas B',      x:0.24, y:0.38, w:0.20, h:0.28, color:'#8b5cf6' },
+  { key:'campus-lab',      label:'Laboratorios',        x:0.46, y:0.04, w:0.18, h:0.30, color:'#3b82f6' },
+  { key:'campus-cafe',     label:'Cafetería / Bar',     x:0.46, y:0.38, w:0.10, h:0.28, color:'#8b5cf6' },
+  { key:'campus-gym',      label:'Gimnasio',            x:0.58, y:0.38, w:0.08, h:0.28, color:'#8b5cf6' },
+  { key:'santacruz-b1',    label:'SC Bloque 1',         x:0.68, y:0.04, w:0.14, h:0.30, color:'#0ea5e9' },
+  { key:'santacruz-b2',    label:'SC Bloque 2',         x:0.84, y:0.04, w:0.14, h:0.30, color:'#0ea5e9' },
+  { key:'santacruz-aulas', label:'SC Aulas',            x:0.68, y:0.38, w:0.30, h:0.28, color:'#06b6d4' },
+  { key:'tachina-of',      label:'Tachina Oficinas',    x:0.02, y:0.70, w:0.22, h:0.26, color:'#10b981' },
+  { key:'tachina-patio',   label:'Tachina Patio',       x:0.26, y:0.70, w:0.18, h:0.26, color:'#10b981' },
+  { key:'tachina-ext',     label:'Tachina Exterior',    x:0.46, y:0.70, w:0.20, h:0.26, color:'#14b8a6' },
+  { key:'tachina-otros',   label:'Tachina Otros',       x:0.68, y:0.70, w:0.30, h:0.26, color:'#14b8a6' },
 ];
 
 /* Asigna zona según el nombre del AP */
@@ -57,34 +58,34 @@ function assignZone(ap: AccessPoint): { x: number; y: number } {
   const jy = ((seed * 6271) % 1000) / 1000;
 
   return {
-    x: zone.x + 0.02 + jx * (zone.w - 0.04),
-    y: zone.y + 0.04 + jy * (zone.h - 0.06),
+    x: zone.x + 0.04 + jx * (zone.w - 0.08),
+    y: zone.y + 0.06 + jy * (zone.h - 0.12),
   };
 }
 
-/* ── Paleta de colores para el heatmap ─────────────────────── */
+/* ── Paleta de colores térmica continua (Magma/Turbo style) ─────────────────────── */
 function buildColormap(): Uint8ClampedArray {
   const cm = new Uint8ClampedArray(256 * 4);
   for (let i = 0; i < 256; i++) {
     const t = i / 255;
     let r, g, b;
-    if (t < 0.25) {
-      const s = t / 0.25;
-      r = 0; g = Math.round(s * 100); b = Math.round(150 + s * 105);
-    } else if (t < 0.5) {
-      const s = (t - 0.25) / 0.25;
-      r = 0; g = Math.round(100 + s * 155); b = Math.round(255 - s * 255);
-    } else if (t < 0.75) {
-      const s = (t - 0.5) / 0.25;
-      r = Math.round(s * 255); g = 255; b = 0;
+    // Enhanced vibrant thermal palette
+    if (t < 0.2) {
+      r = 0; g = 0; b = Math.round(t * 5 * 255); // Black to Blue
+    } else if (t < 0.4) {
+      r = 0; g = Math.round((t - 0.2) * 5 * 255); b = 255; // Blue to Cyan
+    } else if (t < 0.6) {
+      r = Math.round((t - 0.4) * 5 * 255); g = 255; b = Math.round(255 - (t - 0.4) * 5 * 255); // Cyan to Yellow
+    } else if (t < 0.8) {
+      r = 255; g = Math.round(255 - (t - 0.6) * 5 * 255); b = 0; // Yellow to Red
     } else {
-      const s = (t - 0.75) / 0.25;
-      r = 255; g = Math.round(255 - s * 200); b = 0;
+      r = 255; g = Math.round((t - 0.8) * 5 * 255); b = Math.round((t - 0.8) * 5 * 255); // Red to White
     }
     cm[i * 4 + 0] = r;
     cm[i * 4 + 1] = g;
     cm[i * 4 + 2] = b;
-    cm[i * 4 + 3] = Math.round(t * 210);
+    // Lower alpha curve to let the blueprint show through in low-density areas
+    cm[i * 4 + 3] = Math.round(Math.pow(t, 1.2) * 200); 
   }
   return cm;
 }
@@ -98,60 +99,71 @@ function renderHeatmap(
   maxClients: number,
   showZones: boolean,
   showAPs: boolean,
+  isDark: boolean
 ) {
   const W = canvas.width;
   const H = canvas.height;
   const ctx = canvas.getContext('2d')!;
 
-  // Fondo
-  ctx.fillStyle = '#07091a';
-  ctx.fillRect(0, 0, W, H);
+  // Clear background (transparent to let CSS handle it)
+  ctx.clearRect(0, 0, W, H);
 
-  // Zonas del campus
+  // Zonas del campus (Blueprint Style)
   if (showZones) {
     ZONES.forEach(z => {
       const x = z.x * W, y = z.y * H, w = z.w * W, h = z.h * H;
-      ctx.fillStyle = z.color;
-      ctx.strokeStyle = '#1e3460';
+      
+      // Neon Outline
+      ctx.strokeStyle = isDark ? `${z.color}50` : `${z.color}80`;
       ctx.lineWidth = 1.5;
+      ctx.setLineDash([8, 4]); // Dashed tech lines
       ctx.beginPath();
-      ctx.roundRect(x, y, w, h, 6);
-      ctx.fill();
+      ctx.roundRect(x, y, w, h, 8);
       ctx.stroke();
+      ctx.setLineDash([]); // Reset
+
+      // Subtle fill
+      ctx.fillStyle = isDark ? `${z.color}05` : `${z.color}10`;
+      ctx.fill();
 
       // Etiqueta de zona
-      ctx.fillStyle = '#1e346080';
-      ctx.font = `bold ${Math.max(9, Math.min(13, w * 0.12))}px Inter, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.fillText(z.label, x + w / 2, y + 14);
+      ctx.fillStyle = isDark ? `${z.color}90` : `${z.color}`;
+      ctx.font = `bold ${Math.max(9, Math.min(12, w * 0.1))}px Inter, monospace`;
+      ctx.textAlign = 'left';
+      ctx.fillText(z.label.toUpperCase(), x + 8, y + 16);
     });
   }
 
-  // ── Capa de calor ──────────────────────────────────────────
+  // ── Capa de calor continua ──────────────────────────────────────────
   const offCanvas = document.createElement('canvas');
   offCanvas.width = W; offCanvas.height = H;
   const off = offCanvas.getContext('2d')!;
 
   const onlineAPs = aps.filter(a => a.status !== 'offline');
-  const radius = Math.round(Math.min(W, H) * 0.10);
+  // Much larger radius for overlapping/blending
+  const radius = Math.round(Math.min(W, H) * 0.22); 
 
   onlineAPs.forEach(ap => {
     const pos = assignZone(ap);
     const cx  = pos.x * W;
     const cy  = pos.y * H;
-    const intensity = Math.max(0.1, ap.clients / Math.max(1, maxClients));
+    // Intensity scaling
+    const intensity = Math.max(0.15, ap.clients / Math.max(1, maxClients));
 
-    const grad = off.createRadialGradient(cx, cy, 0, cx, cy, radius * (0.6 + intensity * 0.8));
-    const alpha = (0.25 + intensity * 0.55).toFixed(2);
-    grad.addColorStop(0,   `rgba(255,255,255,${alpha})`);
-    grad.addColorStop(0.4, `rgba(255,255,255,${(parseFloat(alpha) * 0.5).toFixed(2)})`);
-    grad.addColorStop(1,   'rgba(255,255,255,0)');
+    const grad = off.createRadialGradient(cx, cy, 0, cx, cy, radius);
+    // Exponential falloff for smooth merging
+    grad.addColorStop(0,   `rgba(255, 255, 255, ${intensity * 0.9})`);
+    grad.addColorStop(0.3, `rgba(255, 255, 255, ${intensity * 0.5})`);
+    grad.addColorStop(0.6, `rgba(255, 255, 255, ${intensity * 0.15})`);
+    grad.addColorStop(1,   'rgba(255, 255, 255, 0)');
 
     off.fillStyle = grad;
+    // Use lighter operation to add up thermal heat
+    off.globalCompositeOperation = 'lighter';
     off.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
   });
 
-  // Aplicar colormap
+  // Aplicar colormap térmico
   const imgData = off.getImageData(0, 0, W, H);
   const data    = imgData.data;
   for (let i = 0; i < data.length; i += 4) {
@@ -164,9 +176,13 @@ function renderHeatmap(
     data[i + 3] = COLORMAP[idx + 3];
   }
   off.putImageData(imgData, 0, 0);
+  
+  // Draw heat with global alpha blending
+  ctx.globalAlpha = 0.85;
   ctx.drawImage(offCanvas, 0, 0);
+  ctx.globalAlpha = 1.0;
 
-  // ── APs como puntos ────────────────────────────────────────
+  // ── APs como puntos "Target" ────────────────────────────────────────
   if (showAPs) {
     onlineAPs.forEach(ap => {
       const pos = assignZone(ap);
@@ -174,52 +190,54 @@ function renderHeatmap(
       const cy  = pos.y * H;
       const statusColor = ap.status === 'warning' ? '#f59e0b' : '#10b981';
 
-      // Pulso exterior
+      // Anillo radar
       ctx.beginPath();
-      ctx.arc(cx, cy, 8, 0, Math.PI * 2);
-      ctx.fillStyle = `${statusColor}30`;
-      ctx.fill();
-
-      // Punto central
-      ctx.beginPath();
-      ctx.arc(cx, cy, 4, 0, Math.PI * 2);
-      ctx.fillStyle = statusColor;
-      ctx.fill();
-      ctx.strokeStyle = '#07091a';
+      ctx.arc(cx, cy, 10, 0, Math.PI * 2);
+      ctx.strokeStyle = `${statusColor}60`;
       ctx.lineWidth = 1;
       ctx.stroke();
 
-      // Número de clientes
+      // Punto central
+      ctx.beginPath();
+      ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+      ctx.fillStyle = statusColor;
+      ctx.fill();
+
+      // Número de clientes (Estilo HUD)
       if (ap.clients > 0) {
-        ctx.font = 'bold 8px JetBrains Mono, monospace';
-        ctx.textAlign  = 'center';
+        ctx.font = 'bold 9px monospace';
+        ctx.textAlign  = 'left';
         ctx.textBaseline = 'middle';
-        ctx.fillStyle  = '#fff';
-        ctx.fillText(String(ap.clients), cx, cy - 12);
+        ctx.fillStyle  = isDark ? '#ffffff' : '#334155';
+        ctx.fillText(String(ap.clients), cx + 12, cy);
       }
     });
 
-    // APs offline en rojo tenue
+    // APs offline (X marks the spot)
     aps.filter(a => a.status === 'offline').forEach(ap => {
       const pos = assignZone(ap);
+      const cx  = pos.x * W;
+      const cy  = pos.y * H;
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(pos.x * W, pos.y * H, 3, 0, Math.PI * 2);
-      ctx.fillStyle = '#ef444460';
-      ctx.fill();
+      ctx.moveTo(cx - 3, cy - 3); ctx.lineTo(cx + 3, cy + 3);
+      ctx.moveTo(cx + 3, cy - 3); ctx.lineTo(cx - 3, cy + 3);
+      ctx.stroke();
     });
   }
 
-  // Etiquetas de sectores
+  // Etiquetas de super-sectores
   if (showZones) {
-    ctx.font = 'bold 11px Inter, sans-serif';
+    ctx.font = 'bold 12px Inter, sans-serif';
     ctx.textBaseline = 'top';
     [
-      { label:'CAMPUS CENTRAL', x:0.24, y:0.01 },
-      { label:'SANTA CRUZ',     x:0.76, y:0.01 },
-      { label:'TACHINA',        x:0.38, y:0.68 },
+      { label:'CAMPUS CENTRAL [SECTOR A]', x:0.24, y:0.01 },
+      { label:'SANTA CRUZ [SECTOR B]',     x:0.76, y:0.01 },
+      { label:'TACHINA [SECTOR C]',        x:0.38, y:0.68 },
     ].forEach(({ label, x, y }) => {
       ctx.textAlign = 'center';
-      ctx.fillStyle = '#2a3f6e';
+      ctx.fillStyle = isDark ? '#ffffff30' : '#00000030';
       ctx.fillText(label, x * W, y * H);
     });
   }
@@ -229,6 +247,7 @@ function renderHeatmap(
 export default function Heatmap() {
   const { data: aps,     isLoading: apsLoad  } = useAPs();
   const { data: clients, isLoading: cliLoad  } = useClients();
+  const { isDark } = useThemeStore();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [showZones, setShowZones] = useState(true);
@@ -269,8 +288,8 @@ export default function Heatmap() {
     canvas.width  = W;
     canvas.height = H;
 
-    renderHeatmap(canvas, aps, maxClients, showZones, showAPs);
-  }, [aps, maxClients, showZones, showAPs]);
+    renderHeatmap(canvas, aps, maxClients, showZones, showAPs, isDark);
+  }, [aps, maxClients, showZones, showAPs, isDark]);
 
   // Click en canvas → seleccionar AP más cercano
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -296,126 +315,131 @@ export default function Heatmap() {
   const offlineCount = (aps ?? []).filter(a => a.status === 'offline').length;
 
   return (
-    <div className="space-y-4 card-enter">
+    <div className="space-y-6 card-enter pb-10">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-lg font-bold text-white">Mapa de Calor WiFi</h1>
-          <p className="text-xs mt-0.5" style={{ color:'#4b7ab5' }}>
-            Densidad de conexiones por zona — Campus PUCESE
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+            <Target className="text-cyan-500" />
+            Radar de Cobertura
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Análisis térmico y estructural de densidad WiFi
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Toggle zones */}
+        <div className="flex flex-wrap items-center gap-3">
           <button onClick={() => setShowZones(v => !v)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors"
-            style={{ background: showZones ? '#1d4ed820' : '#0d1526', color: showZones ? '#3b82f6' : '#4b7ab5', border:`1px solid ${showZones ? '#3b82f660' : '#1e3460'}` }}>
-            <Layers size={12} /> Zonas
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${showZones ? 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30' : 'bg-slate-100 dark:bg-white/5 text-slate-500 border border-transparent'}`}>
+            <Layers size={16} /> Estructura
           </button>
-          {/* Toggle APs */}
           <button onClick={() => setShowAPs(v => !v)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors"
-            style={{ background: showAPs ? '#10b98120' : '#0d1526', color: showAPs ? '#10b981' : '#4b7ab5', border:`1px solid ${showAPs ? '#10b98140' : '#1e3460'}` }}>
-            <Wifi size={12} /> APs
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${showAPs ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' : 'bg-slate-100 dark:bg-white/5 text-slate-500 border border-transparent'}`}>
+            <Wifi size={16} /> Dispositivos
           </button>
-          {/* Zoom */}
-          <button onClick={() => setZoom(z => Math.min(2, z + 0.25))} className="p-1.5 rounded-lg hover:bg-noc-hover" style={{ color:'#4b7ab5', border:'1px solid #1e3460' }}><ZoomIn size={14} /></button>
-          <button onClick={() => setZoom(z => Math.max(0.5, z - 0.25))} className="p-1.5 rounded-lg hover:bg-noc-hover" style={{ color:'#4b7ab5', border:'1px solid #1e3460' }}><ZoomOut size={14} /></button>
-          <button onClick={() => { if (aps) renderHeatmap(canvasRef.current!, aps, maxClients, showZones, showAPs); }}
-            className="p-1.5 rounded-lg hover:bg-noc-hover" style={{ color:'#4b7ab5', border:'1px solid #1e3460' }}>
-            <RefreshCw size={14} />
+          <div className="h-6 w-px bg-slate-300 dark:bg-white/10 mx-1" />
+          <button onClick={() => setZoom(z => Math.min(2, z + 0.25))} className="p-2 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"><ZoomIn size={16} /></button>
+          <button onClick={() => setZoom(z => Math.max(0.5, z - 0.25))} className="p-2 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"><ZoomOut size={16} /></button>
+          <button onClick={() => { if (aps) renderHeatmap(canvasRef.current!, aps, maxClients, showZones, showAPs, isDark); }}
+            className="p-2 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-cyan-500/20 hover:text-cyan-400 transition-colors">
+            <RefreshCw size={16} />
           </button>
         </div>
       </div>
 
       {/* KPI strip */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label:'APs en Línea',    value: onlineCount,   color:'#10b981', icon: Wifi },
-          { label:'APs Offline',     value: offlineCount,  color:'#ef4444', icon: Wifi },
-          { label:'Clientes Activos',value: totalClients,  color:'#3b82f6', icon: Users },
-          { label:'Máx. por AP',     value: maxClients,    color:'#f59e0b', icon: Thermometer },
-        ].map(({ label, value, color, icon: Icon }) => (
-          <div key={label} className="noc-card p-3 flex items-center gap-3">
-            <div className="p-2 rounded-lg" style={{ background:`${color}15` }}>
-              <Icon size={15} style={{ color }} />
-            </div>
-            <div>
-              <div className="text-xl font-mono font-bold" style={{ color }}>{value}</div>
-              <div className="text-xs" style={{ color:'#6b8bb5' }}>{label}</div>
-            </div>
+          { label:'Antenas Activas', value: onlineCount,   color:'text-emerald-500', bg:'bg-emerald-500/10' },
+          { label:'Fueras de Línea', value: offlineCount,  color:'text-red-500',     bg:'bg-red-500/10' },
+          { label:'Clientes Totales',value: totalClients,  color:'text-cyan-500',    bg:'bg-cyan-500/10' },
+          { label:'Pico por Antena', value: maxClients,    color:'text-purple-500',  bg:'bg-purple-500/10' },
+        ].map(({ label, value, color, bg }) => (
+          <div key={label} className="metric-box flex flex-col group hover:-translate-y-1 transition-transform">
+            <div className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">{label}</div>
+            <div className={`text-2xl font-bold ${color}`}>{value}</div>
           </div>
         ))}
       </div>
 
       {/* Canvas + Sidebar */}
-      <div className="flex gap-4">
+      <div className="flex flex-col xl:flex-row gap-6">
 
         {/* Mapa principal */}
-        <div className="flex-1 noc-card p-3 overflow-hidden">
+        <div className="flex-1 noc-card p-0 overflow-hidden relative border-slate-200 dark:border-white/10">
+          
+          {/* Fondo Blueprint (CSS Grid) */}
+          <div className="absolute inset-0 blueprint-grid dark:opacity-40 opacity-10 pointer-events-none" />
+
+          {/* Scanner Line */}
+          {!isLoading && <div className="radar-scanner" />}
+
           {isLoading ? (
-            <div className="flex items-center justify-center h-96">
+            <div className="flex items-center justify-center h-[500px]">
               <div className="text-center">
-                <div className="w-10 h-10 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                <p className="text-sm" style={{ color:'#4b7ab5' }}>Generando mapa de calor...</p>
+                <div className="w-12 h-12 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                <p className="text-sm font-medium text-cyan-600 dark:text-cyan-400 animate-pulse">Analizando radiación electromagnética...</p>
               </div>
             </div>
           ) : (
-            <div ref={containerRef} style={{ overflow:'auto' }}>
+            <div ref={containerRef} className="w-full relative z-10 overflow-auto scrollbar-hide">
               <canvas
                 ref={canvasRef}
                 onClick={handleCanvasClick}
+                className="block mx-auto min-w-[800px]"
                 style={{
                   width: `${zoom * 100}%`,
                   cursor: 'crosshair',
-                  borderRadius: 8,
-                  display: 'block',
                 }}
               />
             </div>
           )}
 
-          {/* Leyenda */}
-          <div className="flex items-center gap-2 mt-3 px-1">
-            <span className="text-xs" style={{ color:'#4b7ab5' }}>Sin conexión</span>
-            <div className="flex-1 h-3 rounded-full" style={{
-              background:'linear-gradient(90deg, #0d1526, #0064b4, #00c8a0, #ffd700, #ff2200)',
-              opacity: 0.8,
+          {/* Leyenda Térmica flotante */}
+          <div className="absolute bottom-4 left-4 right-4 md:right-auto md:w-96 noc-card p-3 shadow-lg z-20 bg-white/90 dark:bg-[#0B0E14]/90 backdrop-blur">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Baja Señal</span>
+              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Alta Congestión</span>
+            </div>
+            <div className="h-2 rounded-full w-full mb-3 shadow-inner" style={{
+              background:'linear-gradient(90deg, rgba(0,0,255,0.2), #00f, #0ff, #0f0, #ff0, #f00, #fff)'
             }} />
-            <span className="text-xs" style={{ color:'#4b7ab5' }}>Alta densidad</span>
-            <div className="flex items-center gap-3 ml-4 text-xs">
-              <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-green-400" />Online</span>
-              <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-yellow-400" />Warn</span>
-              <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full" style={{ background:'#ef444460' }} />Offline</span>
+            <div className="flex items-center gap-4 text-[10px] font-medium text-slate-600 dark:text-slate-300">
+              <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-emerald-500" /> Operativo</span>
+              <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-amber-500" /> Advertencia</span>
+              <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full border-2 border-red-500" /> Desconectado</span>
             </div>
           </div>
         </div>
 
         {/* Panel lateral de zonas */}
-        <div className="w-64 flex-shrink-0 noc-card p-3">
-          <h3 className="text-xs font-semibold text-white mb-3 flex items-center gap-2">
-            <Thermometer size={13} style={{ color:'#f59e0b' }} />
-            Zonas por densidad
-          </h3>
-          <div className="space-y-2 max-h-[520px] overflow-y-auto">
+        <div className="w-full xl:w-80 flex-shrink-0 noc-card flex flex-col overflow-hidden border-slate-200 dark:border-white/10">
+          <div className="p-4 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
+            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+              <Activity size={16} className="text-purple-500" />
+              Sectores Estructurales
+            </h3>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {zoneStats.map((z, i) => {
               const pct = z.totalClients / Math.max(1, zoneStats[0].totalClients) * 100;
-              const color = pct > 66 ? '#ef4444' : pct > 33 ? '#f59e0b' : '#10b981';
+              const colorClass = pct > 66 ? 'bg-red-500 text-red-500' : pct > 33 ? 'bg-amber-500 text-amber-500' : 'bg-emerald-500 text-emerald-500';
+              
               return (
-                <div key={z.key} className="rounded-lg p-2.5"
-                  style={{ background:'#0d1526', border:'1px solid #1e3460' }}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-medium text-white truncate">{z.label}</span>
-                    <span className="text-xs font-mono ml-2 flex-shrink-0" style={{ color }}>{z.totalClients}</span>
+                <div key={z.key} className="group rounded-xl p-3 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/20 transition-colors">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate pr-2 group-hover:text-cyan-500 transition-colors">{z.label}</span>
+                    <span className={`text-sm font-black ${colorClass.split(' ')[1]}`}>{z.totalClients}</span>
                   </div>
-                  <div className="h-1.5 rounded-full mb-1.5" style={{ background:'#1e3460' }}>
-                    <div className="h-full rounded-full transition-all duration-700"
-                      style={{ width:`${pct}%`, background:color }} />
+                  <div className="h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 mb-2 overflow-hidden">
+                    <div className={`h-full rounded-full transition-all duration-1000 ${colorClass.split(' ')[0]}`}
+                      style={{ width:`${pct}%` }} />
                   </div>
-                  <div className="flex gap-3 text-xs" style={{ color:'#4b7ab5', fontSize:10 }}>
-                    <span>{z.onlineAPs}/{z.totalAPs} APs</span>
-                    <span>máx. {z.maxSignal} cli</span>
-                    <span className="ml-auto font-mono">#{i + 1}</span>
+                  <div className="flex justify-between items-end text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                    <div className="flex flex-col">
+                      <span>{z.onlineAPs}/{z.totalAPs} Antenas</span>
+                      <span>Pico: {z.maxSignal} usr</span>
+                    </div>
+                    <span className="font-mono text-slate-400 dark:text-slate-600 text-lg leading-none">#{i + 1}</span>
                   </div>
                 </div>
               );
@@ -424,57 +448,63 @@ export default function Heatmap() {
         </div>
       </div>
 
-      {/* Tabla de APs ordenados por clientes */}
-      <div className="noc-card p-4">
-        <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-          <Users size={14} style={{ color:'#06b6d4' }} />
-          Ranking de APs por carga de clientes
-        </h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+      {/* Tabla de APs Críticos */}
+      <div className="noc-card flex flex-col overflow-hidden border-slate-200 dark:border-white/10">
+        <div className="p-4 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
+          <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+            <Users size={16} className="text-cyan-500" />
+            Ranking de Antenas por Carga
+          </h3>
+        </div>
+        <div className="overflow-x-auto p-2">
+          <table className="w-full text-xs text-left">
             <thead>
-              <tr style={{ borderBottom:'1px solid #1e3460', background:'#0d1526' }}>
-                {['#','AP','Zona / Grupo','Estado','Clientes','Carga','Temperatura','Firmware'].map(h => (
-                  <th key={h} className="px-3 py-2 text-left font-medium" style={{ color:'#4b7ab5' }}>{h}</th>
-                ))}
+              <tr className="text-slate-500 dark:text-slate-400">
+                <th className="px-3 py-3 font-medium">#</th>
+                <th className="px-3 py-3 font-medium">Dispositivo</th>
+                <th className="px-3 py-3 font-medium">Ubicación</th>
+                <th className="px-3 py-3 font-medium">Estado</th>
+                <th className="px-3 py-3 font-medium text-center">Conexiones</th>
+                <th className="px-3 py-3 font-medium">Saturación</th>
+                <th className="px-3 py-3 font-medium">Temperatura</th>
               </tr>
             </thead>
-            <tbody>
-              {[...(aps ?? [])].sort((a, b) => b.clients - a.clients).slice(0, 20).map((ap, i) => {
+            <tbody className="text-slate-700 dark:text-slate-300">
+              {[...(aps ?? [])].sort((a, b) => b.clients - a.clients).slice(0, 15).map((ap, i) => {
                 const pct      = (ap.clients / Math.max(1, maxClients)) * 100;
-                const barColor = pct > 70 ? '#ef4444' : pct > 40 ? '#f59e0b' : '#10b981';
-                const stColor  = ap.status === 'online' ? '#10b981' : ap.status === 'warning' ? '#f59e0b' : '#ef4444';
+                const barColor = pct > 70 ? 'bg-red-500' : pct > 40 ? 'bg-amber-500' : 'bg-emerald-500';
+                const stColor  = ap.status === 'online' ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' : ap.status === 'warning' ? 'text-amber-500 bg-amber-500/10 border-amber-500/20' : 'text-red-500 bg-red-500/10 border-red-500/20';
+                
                 return (
                   <tr key={ap.serial}
-                    className="cursor-pointer transition-colors"
-                    style={{ borderBottom:'1px solid #1e346020' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = '#182548')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    className="border-b border-slate-100 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer group"
                     onClick={() => setSelected(ap)}>
-                    <td className="px-3 py-2 font-mono" style={{ color: i < 3 ? '#f59e0b' : '#374d6b' }}>
-                      {i + 1}
+                    <td className="px-3 py-3 font-mono font-bold text-slate-400 dark:text-slate-600">
+                      {String(i + 1).padStart(2, '0')}
                     </td>
-                    <td className="px-3 py-2">
-                      <div className="font-medium text-white truncate max-w-[180px]" title={ap.name}>{ap.name}</div>
-                      <div className="font-mono" style={{ color:'#374d6b', fontSize:10 }}>{ap.serial}</div>
+                    <td className="px-3 py-3">
+                      <div className="font-bold text-slate-800 dark:text-slate-200 group-hover:text-cyan-500 transition-colors">{ap.name}</div>
+                      <div className="font-mono text-[10px] text-slate-400">{ap.serial}</div>
                     </td>
-                    <td className="px-3 py-2" style={{ color:'#6b8bb5' }}>{ap.building || ap.group}</td>
-                    <td className="px-3 py-2">
-                      <span className="px-2 py-0.5 rounded-full font-mono text-xs" style={{ background:`${stColor}15`, color:stColor }}>
-                        {ap.status}
+                    <td className="px-3 py-3 text-slate-500 dark:text-slate-400">{ap.building || ap.group}</td>
+                    <td className="px-3 py-3">
+                      <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold border ${stColor}`}>
+                        {ap.status.toUpperCase()}
                       </span>
                     </td>
-                    <td className="px-3 py-2 font-mono font-bold" style={{ color: barColor }}>{ap.clients}</td>
-                    <td className="px-3 py-2 w-28">
-                      <div className="h-2 rounded-full" style={{ background:'#1e3460' }}>
-                        <div className="h-full rounded-full" style={{ width:`${pct}%`, background:barColor }} />
+                    <td className="px-3 py-3 text-center">
+                      <span className="font-black text-sm">{ap.clients}</span>
+                    </td>
+                    <td className="px-3 py-3 w-40">
+                      <div className="h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                        <div className={`h-full rounded-full ${barColor}`} style={{ width:`${pct}%` }} />
                       </div>
-                      <div className="text-right font-mono mt-0.5" style={{ color: barColor, fontSize:9 }}>{pct.toFixed(0)}%</div>
                     </td>
-                    <td className="px-3 py-2 font-mono" style={{ color: ap.temperature >= 65 ? '#ef4444' : ap.temperature >= 55 ? '#f59e0b' : '#10b981' }}>
-                      {ap.temperature > 0 ? `${ap.temperature}°C` : '—'}
+                    <td className="px-3 py-3">
+                      <span className={`font-mono font-medium ${ap.temperature >= 65 ? 'text-red-500' : ap.temperature >= 55 ? 'text-amber-500' : 'text-emerald-500'}`}>
+                        {ap.temperature > 0 ? `${ap.temperature}°C` : '—'}
+                      </span>
                     </td>
-                    <td className="px-3 py-2 font-mono" style={{ color:'#4b7ab5', fontSize:10 }}>{ap.firmware}</td>
                   </tr>
                 );
               })}
@@ -483,45 +513,51 @@ export default function Heatmap() {
         </div>
       </div>
 
-      {/* Modal AP seleccionado */}
+      {/* Modal interactivo HUD */}
       {selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background:'#00000080', backdropFilter:'blur(4px)' }}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 dark:bg-[#0B0E14]/80 backdrop-blur-sm transition-all"
           onClick={() => setSelected(null)}>
-          <div className="noc-card p-5 w-80" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-start mb-3">
+          <div className="noc-card p-0 w-80 shadow-2xl border-cyan-500/30 overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-4 bg-slate-50 dark:bg-white/5 border-b border-slate-100 dark:border-white/10 flex justify-between items-start">
               <div>
-                <div className="text-sm font-bold text-white leading-tight">{selected.name}</div>
-                <div className="text-xs mt-0.5 font-mono" style={{ color:'#4b7ab5' }}>{selected.serial}</div>
+                <div className="text-lg font-black text-slate-800 dark:text-white leading-tight">{selected.name}</div>
+                <div className="text-xs mt-1 font-mono text-cyan-600 dark:text-cyan-400">{selected.serial}</div>
               </div>
-              <button onClick={() => setSelected(null)} className="text-slate-500 hover:text-white">✕</button>
+              <button onClick={() => setSelected(null)} className="p-1 rounded-md text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-slate-700 dark:hover:text-white transition-colors">✕</button>
             </div>
-            <div className="space-y-2 text-xs">
+            
+            <div className="p-4 space-y-3 text-xs">
               {[
-                ['Estado',    selected.status, selected.status === 'online' ? '#10b981' : selected.status === 'warning' ? '#f59e0b' : '#ef4444'],
-                ['Clientes',  selected.clients, '#06b6d4'],
-                ['IP',        selected.ip, '#3b82f6'],
-                ['Grupo',     selected.group, '#6b8bb5'],
-                ['Firmware',  selected.firmware, '#6b8bb5'],
-                ['Temperatura', selected.temperature > 0 ? `${selected.temperature}°C` : '—', selected.temperature >= 65 ? '#ef4444' : '#10b981'],
+                ['Estado de Red', selected.status.toUpperCase(), selected.status === 'online' ? 'text-emerald-500' : selected.status === 'warning' ? 'text-amber-500' : 'text-red-500'],
+                ['Usuarios Conectados',  selected.clients, 'text-cyan-500 text-sm font-black'],
+                ['Dirección IPv4', selected.ip, 'text-purple-500 font-mono'],
+                ['Grupo Lógico', selected.group, 'text-slate-600 dark:text-slate-300'],
+                ['Versión Firmware', selected.firmware, 'text-slate-500 font-mono'],
+                ['Térmica CPU', selected.temperature > 0 ? `${selected.temperature}°C` : '—', selected.temperature >= 65 ? 'text-red-500 font-bold' : 'text-emerald-500'],
               ].map(([k, v, c]) => (
-                <div key={k} className="flex justify-between py-1.5 border-b" style={{ borderColor:'#1e346030' }}>
-                  <span style={{ color:'#4b7ab5' }}>{k}</span>
-                  <span className="font-mono font-semibold" style={{ color: c as string }}>{String(v)}</span>
+                <div key={k as string} className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-white/5 last:border-0">
+                  <span className="text-slate-500 dark:text-slate-400 font-medium">{k}</span>
+                  <span className={c as string}>{String(v)}</span>
                 </div>
               ))}
             </div>
-            <div className="mt-3">
+
+            <div className="p-4 bg-slate-50 dark:bg-white/5 border-t border-slate-100 dark:border-white/10">
               {(selected.clients / maxClients * 100) > 70 && (
-                <div className="text-xs rounded p-2" style={{ background:'#ef444415', color:'#ef4444', border:'1px solid #ef444430' }}>
-                  ⚠ Carga alta — considerar balanceo de clientes
+                <div className="text-[11px] font-medium rounded-lg p-3 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20 mb-2">
+                  <AlertTriangle size={14} className="inline mr-1.5 -mt-0.5" />
+                  Saturación detectada. Sugerimos habilitar band-steering.
                 </div>
               )}
               {selected.status === 'offline' && (
-                <div className="text-xs rounded p-2" style={{ background:'#ef444415', color:'#ef4444', border:'1px solid #ef444430' }}>
-                  ✕ AP sin conexión — verificar PoE y cableado
+                <div className="text-[11px] font-medium rounded-lg p-3 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20 mb-2">
+                  <Power size={14} className="inline mr-1.5 -mt-0.5" />
+                  Equipo inalcanzable. Revise suministro PoE en switch.
                 </div>
               )}
+              <button className="w-full py-2.5 rounded-lg bg-cyan-500 hover:bg-cyan-600 text-white font-bold text-xs transition-colors glow-btn shadow-lg shadow-cyan-500/30">
+                Ejecutar Diagnóstico Completo
+              </button>
             </div>
           </div>
         </div>
