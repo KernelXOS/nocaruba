@@ -11,10 +11,23 @@ import Servers from './pages/Servers';
 import Clients from './pages/Clients';
 import Alerts from './pages/Alerts';
 import Heatmap from './pages/Heatmap';
+import ToastContainer from './components/ui/ToastContainer';
+import { useChangeDetection } from './hooks/useChangeDetection';
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
   const isAuthenticated = useAuthStore(s => s.isAuthenticated);
   return isAuthenticated ? children : <Navigate to="/login" replace />;
+}
+
+/* Wrapper que activa la detección de cambios solo cuando hay sesión */
+function AuthenticatedApp() {
+  useChangeDetection();
+  return (
+    <>
+      <ToastContainer />
+      <Layout />
+    </>
+  );
 }
 
 export default function App() {
@@ -34,7 +47,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/" element={
           <PrivateRoute>
-            <Layout />
+            <AuthenticatedApp />
           </PrivateRoute>
         }>
           <Route index          element={<Dashboard />} />
