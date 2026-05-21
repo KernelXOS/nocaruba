@@ -4,62 +4,84 @@ import type { AccessPoint } from '../types';
 import { Thermometer, Wifi, Users, RefreshCw, ZoomIn, ZoomOut, Layers, Target, Activity, AlertTriangle, Power } from 'lucide-react';
 import { useThemeStore } from '../store/themeStore';
 
-/* ── Zonas del campus PUCESE (posición relativa 0–1) ───────── */
-const ZONES: { key: string; label: string; x: number; y: number; w: number; h: number; color: string }[] = [
-  { key:'campus-admin',    label:'Administrativo',      x:0.02, y:0.04, w:0.22, h:0.30, color:'#3b82f6' },
-  { key:'campus-biblio',   label:'Biblioteca Central',  x:0.26, y:0.04, w:0.18, h:0.30, color:'#3b82f6' },
-  { key:'campus-aulas-a',  label:'Bloque Aulas A',      x:0.02, y:0.38, w:0.20, h:0.28, color:'#8b5cf6' },
-  { key:'campus-aulas-b',  label:'Bloque Aulas B',      x:0.24, y:0.38, w:0.20, h:0.28, color:'#8b5cf6' },
-  { key:'campus-lab',      label:'Laboratorios',        x:0.46, y:0.04, w:0.18, h:0.30, color:'#3b82f6' },
-  { key:'campus-cafe',     label:'Cafetería / Bar',     x:0.46, y:0.38, w:0.10, h:0.28, color:'#8b5cf6' },
-  { key:'campus-gym',      label:'Gimnasio',            x:0.58, y:0.38, w:0.08, h:0.28, color:'#8b5cf6' },
-  { key:'santacruz-b1',    label:'SC Bloque 1',         x:0.68, y:0.04, w:0.14, h:0.30, color:'#0ea5e9' },
-  { key:'santacruz-b2',    label:'SC Bloque 2',         x:0.84, y:0.04, w:0.14, h:0.30, color:'#0ea5e9' },
-  { key:'santacruz-aulas', label:'SC Aulas',            x:0.68, y:0.38, w:0.30, h:0.28, color:'#06b6d4' },
-  { key:'tachina-of',      label:'Tachina Oficinas',    x:0.02, y:0.70, w:0.22, h:0.26, color:'#10b981' },
-  { key:'tachina-patio',   label:'Tachina Patio',       x:0.26, y:0.70, w:0.18, h:0.26, color:'#10b981' },
-  { key:'tachina-ext',     label:'Tachina Exterior',    x:0.46, y:0.70, w:0.20, h:0.26, color:'#14b8a6' },
-  { key:'tachina-otros',   label:'Tachina Otros',       x:0.68, y:0.70, w:0.30, h:0.26, color:'#14b8a6' },
+/* ── Zonas del Edificio ADSIS (Tachina) ───────── */
+const ZONES: { key: string; label: string; x: number; y: number; w: number; h: number; color: string; type: string }[] = [
+  // SEGUNDA PLANTA (Top)
+  { key:'p2-aulas-15-22', label:'Aulas 15-22',           x:0.06, y:0.06, w:0.76, h:0.10, color:'#facc15', type: 'Segunda Planta' },
+  { key:'p2-usosmult',    label:'Aula Usos Múltiples',   x:0.06, y:0.18, w:0.25, h:0.10, color:'#94a3b8', type: 'Segunda Planta' },
+  { key:'p2-labs',        label:'Labs Educ / PINE',      x:0.33, y:0.18, w:0.25, h:0.10, color:'#2dd4bf', type: 'Segunda Planta' },
+  { key:'p2-aulas-13-14', label:'Aulas 13-14',           x:0.60, y:0.18, w:0.15, h:0.10, color:'#facc15', type: 'Segunda Planta' },
+  { key:'p2-lab-der',     label:'Laboratorio',           x:0.77, y:0.18, w:0.09, h:0.10, color:'#2dd4bf', type: 'Segunda Planta' },
+
+  // PRIMERA PLANTA (Middle)
+  { key:'p1-coord-top',   label:'Docentes / Pastoral',   x:0.06, y:0.39, w:0.25, h:0.10, color:'#94a3b8', type: 'Primera Planta' },
+  { key:'p1-aulas-8-12',  label:'Aulas 8-12',            x:0.33, y:0.39, w:0.53, h:0.10, color:'#facc15', type: 'Primera Planta' },
+  { key:'p1-coord-bot',   label:'Docentes / Sala',       x:0.06, y:0.51, w:0.20, h:0.10, color:'#94a3b8', type: 'Primera Planta' },
+  { key:'p1-datacenter',  label:'Data Center',           x:0.28, y:0.51, w:0.08, h:0.10, color:'#f87171', type: 'Primera Planta' },
+  { key:'p1-aula-7-hib',  label:'Aula 7 / Híbrida',      x:0.38, y:0.51, w:0.20, h:0.10, color:'#2dd4bf', type: 'Primera Planta' }, 
+  { key:'p1-labs',        label:'Labs Diseño / Comp',    x:0.60, y:0.51, w:0.26, h:0.10, color:'#2dd4bf', type: 'Primera Planta' },
+
+  // PLANTA BAJA (Bottom)
+  { key:'pb-coord-top',   label:'Docentes / Admin',      x:0.06, y:0.72, w:0.25, h:0.10, color:'#94a3b8', type: 'Planta Baja' },
+  { key:'pb-lab-amb',     label:'Lab. Ambiental',        x:0.33, y:0.72, w:0.15, h:0.10, color:'#2dd4bf', type: 'Planta Baja' },
+  { key:'pb-aulas-456',   label:'Aulas 4-6',             x:0.50, y:0.72, w:0.36, h:0.10, color:'#facc15', type: 'Planta Baja' },
+  { key:'pb-coord-bot',   label:'Coordinadores',         x:0.06, y:0.84, w:0.20, h:0.10, color:'#94a3b8', type: 'Planta Baja' },
+  { key:'pb-lab-psico',   label:'Lab. Psicología',       x:0.28, y:0.84, w:0.08, h:0.10, color:'#2dd4bf', type: 'Planta Baja' },
+  { key:'pb-medico',      label:'Consultorio',           x:0.38, y:0.84, w:0.08, h:0.10, color:'#94a3b8', type: 'Planta Baja' },
+  { key:'pb-aulas-123',   label:'Aulas 1-3',             x:0.48, y:0.84, w:0.38, h:0.10, color:'#facc15', type: 'Planta Baja' },
 ];
 
-/* Asigna zona según el nombre del AP */
-function assignZone(ap: AccessPoint): { x: number; y: number } {
-  const n = ap.name.toLowerCase();
-  const g = (ap.group ?? '').toLowerCase();
+/* Asigna zona según el nombre del AP con la estructura de Tachina */
+function assignZone(ap: AccessPoint): { x: number; y: number; zoneKey: string } {
+  const n = (ap.name || '').toLowerCase();
+  
+  const aulaMatch = n.match(/aula[\s-]*(\d+)/) || n.match(/a(\d+)/);
+  const aulaNum = aulaMatch ? parseInt(aulaMatch[1]) : null;
 
-  let zone = ZONES.find(z => {
-    if (n.includes('tachina') || g.includes('tachina')) {
-      if (n.includes('ofic') || n.includes('012') || n.includes('sala'))  return z.key === 'tachina-of';
-      if (n.includes('patio') || n.includes('ingreso') || n.includes('ext')) return z.key === 'tachina-patio';
-      if (n.includes('exterior')) return z.key === 'tachina-ext';
-      return z.key === 'tachina-otros';
-    }
-    if (n.includes('santa cruz') || n.includes('sc') || g.includes('santa cruz')) {
-      if (n.includes('bloque1') || n.includes('bloque 1') || n.includes('b1'))  return z.key === 'santacruz-b1';
-      if (n.includes('bloque2') || n.includes('bloque 2') || n.includes('b2'))  return z.key === 'santacruz-b2';
-      return z.key === 'santacruz-aulas';
-    }
-    // Campus Central
-    if (n.includes('biblio'))                    return z.key === 'campus-biblio';
-    if (n.includes('lab') || n.includes('lab'))  return z.key === 'campus-lab';
-    if (n.includes('caf') || n.includes('bar') || n.includes('vip')) return z.key === 'campus-cafe';
-    if (n.includes('gym') || n.includes('gimnas'))return z.key === 'campus-gym';
-    if (n.includes('aula') && (n.includes('b') || n.includes('2'))) return z.key === 'campus-aulas-b';
-    if (n.includes('aula'))                       return z.key === 'campus-aulas-a';
-    if (n.includes('admin') || n.includes('rect') || n.includes('doc') || n.includes('dir')) return z.key === 'campus-admin';
-    return z.key === 'campus-admin';
-  });
+  let zKey = '';
 
+  if (aulaNum !== null) {
+    if (aulaNum >= 1 && aulaNum <= 3) zKey = 'pb-aulas-123';
+    else if (aulaNum >= 4 && aulaNum <= 6) zKey = 'pb-aulas-456';
+    else if (aulaNum === 7) zKey = 'p1-aula-7-hib';
+    else if (aulaNum >= 8 && aulaNum <= 12) zKey = 'p1-aulas-8-12';
+    else if (aulaNum >= 13 && aulaNum <= 14) zKey = 'p2-aulas-13-14';
+    else if (aulaNum >= 15 && aulaNum <= 22) zKey = 'p2-aulas-15-22';
+  } else if (n.includes('hibrida')) {
+    zKey = 'p1-aula-7-hib';
+  } else if (n.includes('usos') || n.includes('multiple')) {
+    zKey = 'p2-usosmult';
+  } else if (n.includes('lab')) {
+    if (n.includes('amb')) zKey = 'pb-lab-amb';
+    else if (n.includes('psico')) zKey = 'pb-lab-psico';
+    else if (n.includes('edu') || n.includes('pine')) zKey = 'p2-labs';
+    else zKey = 'p1-labs'; 
+  } else if (n.includes('data') || n.includes('center')) {
+    zKey = 'p1-datacenter';
+  } else if (n.includes('medic') || n.includes('consult')) {
+    zKey = 'pb-medico';
+  } else if (n.includes('coord') || n.includes('docen') || n.includes('admin') || n.includes('pastoral') || n.includes('sala')) {
+    if (n.includes('p2') || n.includes('2da')) zKey = 'p2-usosmult';
+    else if (n.includes('p1') || n.includes('1ra') || n.includes('pastoral')) zKey = 'p1-coord-top';
+    else zKey = 'pb-coord-top';
+  } else {
+    // Fallbacks si no coincide nada
+    if (n.includes('p2') || n.includes('2da') || n.includes('segunda')) zKey = 'p2-aulas-15-22';
+    else if (n.includes('p1') || n.includes('1ra') || n.includes('primera')) zKey = 'p1-aulas-8-12';
+    else zKey = 'pb-aulas-123';
+  }
+
+  let zone = ZONES.find(z => z.key === zKey);
   if (!zone) zone = ZONES[0];
 
-  // posición aleatoria pero determinística dentro de la zona
-  const seed = ap.serial.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  const seed = (ap.serial || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0) || Math.random() * 1000;
   const jx = ((seed * 7919) % 1000) / 1000;
   const jy = ((seed * 6271) % 1000) / 1000;
 
   return {
-    x: zone.x + 0.04 + jx * (zone.w - 0.08),
-    y: zone.y + 0.06 + jy * (zone.h - 0.12),
+    x: zone.x + 0.02 + jx * (zone.w - 0.04),
+    y: zone.y + 0.02 + jy * (zone.h - 0.04),
+    zoneKey: zone.key
   };
 }
 
@@ -69,22 +91,20 @@ function buildColormap(): Uint8ClampedArray {
   for (let i = 0; i < 256; i++) {
     const t = i / 255;
     let r, g, b;
-    // Enhanced vibrant thermal palette
     if (t < 0.2) {
-      r = 0; g = 0; b = Math.round(t * 5 * 255); // Black to Blue
+      r = 0; g = 0; b = Math.round(t * 5 * 255); 
     } else if (t < 0.4) {
-      r = 0; g = Math.round((t - 0.2) * 5 * 255); b = 255; // Blue to Cyan
+      r = 0; g = Math.round((t - 0.2) * 5 * 255); b = 255; 
     } else if (t < 0.6) {
-      r = Math.round((t - 0.4) * 5 * 255); g = 255; b = Math.round(255 - (t - 0.4) * 5 * 255); // Cyan to Yellow
+      r = Math.round((t - 0.4) * 5 * 255); g = 255; b = Math.round(255 - (t - 0.4) * 5 * 255); 
     } else if (t < 0.8) {
-      r = 255; g = Math.round(255 - (t - 0.6) * 5 * 255); b = 0; // Yellow to Red
+      r = 255; g = Math.round(255 - (t - 0.6) * 5 * 255); b = 0; 
     } else {
-      r = 255; g = Math.round((t - 0.8) * 5 * 255); b = Math.round((t - 0.8) * 5 * 255); // Red to White
+      r = 255; g = Math.round((t - 0.8) * 5 * 255); b = Math.round((t - 0.8) * 5 * 255); 
     }
     cm[i * 4 + 0] = r;
     cm[i * 4 + 1] = g;
     cm[i * 4 + 2] = b;
-    // Lower alpha curve to let the blueprint show through in low-density areas
     cm[i * 4 + 3] = Math.round(Math.pow(t, 1.2) * 200); 
   }
   return cm;
@@ -105,7 +125,6 @@ function renderHeatmap(
   const H = canvas.height;
   const ctx = canvas.getContext('2d')!;
 
-  // Clear background (transparent to let CSS handle it)
   ctx.clearRect(0, 0, W, H);
 
   // Zonas del campus (Blueprint Style)
@@ -113,24 +132,35 @@ function renderHeatmap(
     ZONES.forEach(z => {
       const x = z.x * W, y = z.y * H, w = z.w * W, h = z.h * H;
       
-      // Neon Outline
-      ctx.strokeStyle = isDark ? `${z.color}50` : `${z.color}80`;
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([8, 4]); // Dashed tech lines
+      ctx.strokeStyle = isDark ? `${z.color}60` : `${z.color}90`;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 2]); 
       ctx.beginPath();
-      ctx.roundRect(x, y, w, h, 8);
+      ctx.roundRect(x, y, w, h, 4);
       ctx.stroke();
-      ctx.setLineDash([]); // Reset
+      ctx.setLineDash([]);
 
-      // Subtle fill
-      ctx.fillStyle = isDark ? `${z.color}05` : `${z.color}10`;
+      ctx.fillStyle = isDark ? `${z.color}15` : `${z.color}25`;
       ctx.fill();
 
       // Etiqueta de zona
-      ctx.fillStyle = isDark ? `${z.color}90` : `${z.color}`;
-      ctx.font = `bold ${Math.max(9, Math.min(12, w * 0.1))}px Inter, monospace`;
+      ctx.fillStyle = isDark ? `${z.color}` : `${z.color}`;
+      ctx.font = `600 ${Math.max(9, Math.min(11, w * 0.12))}px Inter, monospace`;
       ctx.textAlign = 'left';
-      ctx.fillText(z.label.toUpperCase(), x + 8, y + 16);
+      ctx.fillText(z.label.toUpperCase(), x + 6, y + 14);
+    });
+
+    // Títulos de los pisos
+    ctx.font = 'bold 16px Inter, sans-serif';
+    ctx.textBaseline = 'top';
+    [
+      { label:'EDIFICIO ADSIS — SEGUNDA PLANTA (N.+ 8.22)', y:0.015 },
+      { label:'EDIFICIO ADSIS — PRIMERA PLANTA (N.+ 4.11)', y:0.345 },
+      { label:'EDIFICIO ADSIS — PLANTA BAJA (N.+ 0.18)',    y:0.675 },
+    ].forEach(({ label, y }) => {
+      ctx.textAlign = 'center';
+      ctx.fillStyle = isDark ? '#ffffff60' : '#00000060';
+      ctx.fillText(label, W * 0.5, H * y);
     });
   }
 
@@ -140,30 +170,25 @@ function renderHeatmap(
   const off = offCanvas.getContext('2d')!;
 
   const onlineAPs = aps.filter(a => a.status !== 'offline');
-  // Much larger radius for overlapping/blending
-  const radius = Math.round(Math.min(W, H) * 0.22); 
+  const radius = Math.round(Math.min(W, H) * 0.15); // Radio adaptado a la nueva escala
 
   onlineAPs.forEach(ap => {
     const pos = assignZone(ap);
     const cx  = pos.x * W;
     const cy  = pos.y * H;
-    // Intensity scaling
     const intensity = Math.max(0.15, ap.clients / Math.max(1, maxClients));
 
     const grad = off.createRadialGradient(cx, cy, 0, cx, cy, radius);
-    // Exponential falloff for smooth merging
     grad.addColorStop(0,   `rgba(255, 255, 255, ${intensity * 0.9})`);
     grad.addColorStop(0.3, `rgba(255, 255, 255, ${intensity * 0.5})`);
     grad.addColorStop(0.6, `rgba(255, 255, 255, ${intensity * 0.15})`);
     grad.addColorStop(1,   'rgba(255, 255, 255, 0)');
 
     off.fillStyle = grad;
-    // Use lighter operation to add up thermal heat
     off.globalCompositeOperation = 'lighter';
     off.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
   });
 
-  // Aplicar colormap térmico
   const imgData = off.getImageData(0, 0, W, H);
   const data    = imgData.data;
   for (let i = 0; i < data.length; i += 4) {
@@ -177,7 +202,6 @@ function renderHeatmap(
   }
   off.putImageData(imgData, 0, 0);
   
-  // Draw heat with global alpha blending
   ctx.globalAlpha = 0.85;
   ctx.drawImage(offCanvas, 0, 0);
   ctx.globalAlpha = 1.0;
@@ -190,20 +214,17 @@ function renderHeatmap(
       const cy  = pos.y * H;
       const statusColor = ap.status === 'warning' ? '#f59e0b' : '#10b981';
 
-      // Anillo radar
       ctx.beginPath();
       ctx.arc(cx, cy, 10, 0, Math.PI * 2);
       ctx.strokeStyle = `${statusColor}60`;
       ctx.lineWidth = 1;
       ctx.stroke();
 
-      // Punto central
       ctx.beginPath();
       ctx.arc(cx, cy, 3, 0, Math.PI * 2);
       ctx.fillStyle = statusColor;
       ctx.fill();
 
-      // Número de clientes (Estilo HUD)
       if (ap.clients > 0) {
         ctx.font = 'bold 9px monospace';
         ctx.textAlign  = 'left';
@@ -213,7 +234,6 @@ function renderHeatmap(
       }
     });
 
-    // APs offline (X marks the spot)
     aps.filter(a => a.status === 'offline').forEach(ap => {
       const pos = assignZone(ap);
       const cx  = pos.x * W;
@@ -224,21 +244,6 @@ function renderHeatmap(
       ctx.moveTo(cx - 3, cy - 3); ctx.lineTo(cx + 3, cy + 3);
       ctx.moveTo(cx + 3, cy - 3); ctx.lineTo(cx - 3, cy + 3);
       ctx.stroke();
-    });
-  }
-
-  // Etiquetas de super-sectores
-  if (showZones) {
-    ctx.font = 'bold 12px Inter, sans-serif';
-    ctx.textBaseline = 'top';
-    [
-      { label:'CAMPUS CENTRAL [SECTOR A]', x:0.24, y:0.01 },
-      { label:'SANTA CRUZ [SECTOR B]',     x:0.76, y:0.01 },
-      { label:'TACHINA [SECTOR C]',        x:0.38, y:0.68 },
-    ].forEach(({ label, x, y }) => {
-      ctx.textAlign = 'center';
-      ctx.fillStyle = isDark ? '#ffffff30' : '#00000030';
-      ctx.fillText(label, x * W, y * H);
     });
   }
 }
@@ -260,19 +265,17 @@ export default function Heatmap() {
     [aps]
   );
 
-  const zoneStats = useMemo(() => {
+  const activeZones = useMemo(() => {
     if (!aps) return [];
+    const apZones = aps.map(ap => ({ ap, pos: assignZone(ap) }));
     return ZONES.map(z => {
-      const zoneAPs = aps.filter(ap => {
-        const pos = assignZone(ap);
-        return pos.x >= z.x && pos.x <= z.x + z.w && pos.y >= z.y && pos.y <= z.y + z.h;
-      });
+      const zoneAPs = apZones.filter(az => az.pos.zoneKey === z.key).map(az => az.ap);
       return {
         ...z,
-        totalAPs:     zoneAPs.length,
-        onlineAPs:    zoneAPs.filter(a => a.status === 'online').length,
+        totalAPs: zoneAPs.length,
+        onlineAPs: zoneAPs.filter(a => a.status === 'online').length,
         totalClients: zoneAPs.reduce((s, a) => s + a.clients, 0),
-        maxSignal:    zoneAPs.length ? Math.max(...zoneAPs.map(a => a.clients)) : 0,
+        maxSignal: zoneAPs.length ? Math.max(...zoneAPs.map(a => a.clients)) : 0,
       };
     }).filter(z => z.totalAPs > 0).sort((a, b) => b.totalClients - a.totalClients);
   }, [aps]);
@@ -284,14 +287,13 @@ export default function Heatmap() {
     if (!canvas || !cont || !aps) return;
 
     const W = cont.clientWidth  || 900;
-    const H = Math.round(W * 0.58);
+    const H = Math.round(W * 0.75); // Más alto para que entren bien los 3 pisos
     canvas.width  = W;
     canvas.height = H;
 
     renderHeatmap(canvas, aps, maxClients, showZones, showAPs, isDark);
   }, [aps, maxClients, showZones, showAPs, isDark]);
 
-  // Click en canvas → seleccionar AP más cercano
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!aps || !canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
@@ -321,10 +323,10 @@ export default function Heatmap() {
         <div>
           <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
             <Target className="text-cyan-500" />
-            Radar de Cobertura
+            Radar de Cobertura (Edificio ADSIS)
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Análisis térmico y estructural de densidad WiFi
+            Análisis térmico y estructural de densidad WiFi - Campus Tachina
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -365,31 +367,24 @@ export default function Heatmap() {
       <div className="flex flex-col xl:flex-row gap-6">
 
         {/* Mapa principal */}
-        <div className="flex-1 noc-card p-0 overflow-hidden relative border-slate-200 dark:border-white/10">
-          
-          {/* Fondo Blueprint (CSS Grid) */}
+        <div className="flex-1 noc-card p-0 overflow-hidden relative border-slate-200 dark:border-white/10" style={{ minHeight: '600px' }}>
           <div className="absolute inset-0 blueprint-grid dark:opacity-40 opacity-10 pointer-events-none" />
-
-          {/* Scanner Line */}
           {!isLoading && <div className="radar-scanner" />}
 
           {isLoading ? (
-            <div className="flex items-center justify-center h-[500px]">
+            <div className="flex items-center justify-center h-full min-h-[500px]">
               <div className="text-center">
                 <div className="w-12 h-12 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
                 <p className="text-sm font-medium text-cyan-600 dark:text-cyan-400 animate-pulse">Analizando radiación electromagnética...</p>
               </div>
             </div>
           ) : (
-            <div ref={containerRef} className="w-full relative z-10 overflow-auto scrollbar-hide">
+            <div ref={containerRef} className="w-full h-full relative z-10 overflow-auto scrollbar-hide">
               <canvas
                 ref={canvasRef}
                 onClick={handleCanvasClick}
                 className="block mx-auto min-w-[800px]"
-                style={{
-                  width: `${zoom * 100}%`,
-                  cursor: 'crosshair',
-                }}
+                style={{ width: `${zoom * 100}%`, cursor: 'crosshair' }}
               />
             </div>
           )}
@@ -412,24 +407,25 @@ export default function Heatmap() {
         </div>
 
         {/* Panel lateral de zonas */}
-        <div className="w-full xl:w-80 flex-shrink-0 noc-card flex flex-col overflow-hidden border-slate-200 dark:border-white/10">
+        <div className="w-full xl:w-80 flex-shrink-0 noc-card flex flex-col overflow-hidden border-slate-200 dark:border-white/10 max-h-[800px]">
           <div className="p-4 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
             <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
               <Activity size={16} className="text-purple-500" />
-              Sectores Estructurales
+              Sectores Estructurales (ADSIS)
             </h3>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {zoneStats.map((z, i) => {
-              const pct = z.totalClients / Math.max(1, zoneStats[0].totalClients) * 100;
+            {activeZones.map((z, i) => {
+              const pct = z.totalClients / Math.max(1, activeZones[0].totalClients) * 100;
               const colorClass = pct > 66 ? 'bg-red-500 text-red-500' : pct > 33 ? 'bg-amber-500 text-amber-500' : 'bg-emerald-500 text-emerald-500';
               
               return (
                 <div key={z.key} className="group rounded-xl p-3 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/20 transition-colors">
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate pr-2 group-hover:text-cyan-500 transition-colors">{z.label}</span>
                     <span className={`text-sm font-black ${colorClass.split(' ')[1]}`}>{z.totalClients}</span>
                   </div>
+                  <div className="text-[10px] text-slate-400 mb-2 truncate">{z.type}</div>
                   <div className="h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 mb-2 overflow-hidden">
                     <div className={`h-full rounded-full transition-all duration-1000 ${colorClass.split(' ')[0]}`}
                       style={{ width:`${pct}%` }} />
