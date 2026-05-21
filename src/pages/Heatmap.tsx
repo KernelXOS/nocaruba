@@ -1,27 +1,27 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useAPs, useClients } from '../hooks/useData';
 import type { AccessPoint } from '../types';
-import { Thermometer, Wifi, Users, RefreshCw, ZoomIn, ZoomOut, Layers, Target, Activity, AlertTriangle, Power } from 'lucide-react';
+import { Thermometer, Wifi, Users, RefreshCw, ZoomIn, ZoomOut, Layers, Target, Activity, AlertTriangle, Power, Map as MapIcon, ChevronDown } from 'lucide-react';
 import { useThemeStore } from '../store/themeStore';
 
-/* ── Zonas del Edificio ADSIS (Tachina) ───────── */
-const ZONES: { key: string; label: string; x: number; y: number; w: number; h: number; color: string; type: string }[] = [
-  // SEGUNDA PLANTA (Top)
+type Campus = 'tachina' | 'central' | 'santacruz';
+
+/* ── Zonas TACHINA (Planos ADSIS) ── */
+const TACHINA_ZONES = [
+  // SEGUNDA PLANTA
   { key:'p2-aulas-15-22', label:'Aulas 15-22',           x:0.06, y:0.06, w:0.76, h:0.10, color:'#facc15', type: 'Segunda Planta' },
   { key:'p2-usosmult',    label:'Aula Usos Múltiples',   x:0.06, y:0.18, w:0.25, h:0.10, color:'#94a3b8', type: 'Segunda Planta' },
   { key:'p2-labs',        label:'Labs Educ / PINE',      x:0.33, y:0.18, w:0.25, h:0.10, color:'#2dd4bf', type: 'Segunda Planta' },
   { key:'p2-aulas-13-14', label:'Aulas 13-14',           x:0.60, y:0.18, w:0.15, h:0.10, color:'#facc15', type: 'Segunda Planta' },
   { key:'p2-lab-der',     label:'Laboratorio',           x:0.77, y:0.18, w:0.09, h:0.10, color:'#2dd4bf', type: 'Segunda Planta' },
-
-  // PRIMERA PLANTA (Middle)
+  // PRIMERA PLANTA
   { key:'p1-coord-top',   label:'Docentes / Pastoral',   x:0.06, y:0.39, w:0.25, h:0.10, color:'#94a3b8', type: 'Primera Planta' },
   { key:'p1-aulas-8-12',  label:'Aulas 8-12',            x:0.33, y:0.39, w:0.53, h:0.10, color:'#facc15', type: 'Primera Planta' },
   { key:'p1-coord-bot',   label:'Docentes / Sala',       x:0.06, y:0.51, w:0.20, h:0.10, color:'#94a3b8', type: 'Primera Planta' },
   { key:'p1-datacenter',  label:'Data Center',           x:0.28, y:0.51, w:0.08, h:0.10, color:'#f87171', type: 'Primera Planta' },
   { key:'p1-aula-7-hib',  label:'Aula 7 / Híbrida',      x:0.38, y:0.51, w:0.20, h:0.10, color:'#2dd4bf', type: 'Primera Planta' }, 
   { key:'p1-labs',        label:'Labs Diseño / Comp',    x:0.60, y:0.51, w:0.26, h:0.10, color:'#2dd4bf', type: 'Primera Planta' },
-
-  // PLANTA BAJA (Bottom)
+  // PLANTA BAJA
   { key:'pb-coord-top',   label:'Docentes / Admin',      x:0.06, y:0.72, w:0.25, h:0.10, color:'#94a3b8', type: 'Planta Baja' },
   { key:'pb-lab-amb',     label:'Lab. Ambiental',        x:0.33, y:0.72, w:0.15, h:0.10, color:'#2dd4bf', type: 'Planta Baja' },
   { key:'pb-aulas-456',   label:'Aulas 4-6',             x:0.50, y:0.72, w:0.36, h:0.10, color:'#facc15', type: 'Planta Baja' },
@@ -31,53 +31,27 @@ const ZONES: { key: string; label: string; x: number; y: number; w: number; h: n
   { key:'pb-aulas-123',   label:'Aulas 1-3',             x:0.48, y:0.84, w:0.38, h:0.10, color:'#facc15', type: 'Planta Baja' },
 ];
 
-/* Asigna zona según el nombre del AP con la estructura de Tachina */
-function assignZone(ap: AccessPoint): { x: number; y: number; zoneKey: string } {
-  const n = (ap.name || '').toLowerCase();
-  
-  const aulaMatch = n.match(/aula[\s-]*(\d+)/) || n.match(/a(\d+)/);
-  const aulaNum = aulaMatch ? parseInt(aulaMatch[1]) : null;
+/* ── Zonas CENTRAL (Desordenado original ajustado) ── */
+const CENTRAL_ZONES = [
+  { key:'campus-admin',    label:'Administrativo',      x:0.06, y:0.10, w:0.40, h:0.35, color:'#3b82f6', type:'Campus Central' },
+  { key:'campus-biblio',   label:'Biblioteca Central',  x:0.50, y:0.10, w:0.40, h:0.35, color:'#3b82f6', type:'Campus Central' },
+  { key:'campus-aulas-a',  label:'Bloque Aulas A',      x:0.06, y:0.50, w:0.26, h:0.35, color:'#8b5cf6', type:'Campus Central' },
+  { key:'campus-aulas-b',  label:'Bloque Aulas B',      x:0.36, y:0.50, w:0.26, h:0.35, color:'#8b5cf6', type:'Campus Central' },
+  { key:'campus-lab',      label:'Laboratorios',        x:0.66, y:0.50, w:0.26, h:0.35, color:'#3b82f6', type:'Campus Central' },
+];
 
-  let zKey = '';
+/* ── Zonas SANTA CRUZ (Desordenado original) ── */
+const SC_ZONES = [
+  { key:'sc-b1',    label:'SC Bloque 1', x:0.10, y:0.10, w:0.35, h:0.35, color:'#0ea5e9', type:'Santa Cruz' },
+  { key:'sc-b2',    label:'SC Bloque 2', x:0.50, y:0.10, w:0.35, h:0.35, color:'#0ea5e9', type:'Santa Cruz' },
+  { key:'sc-aulas', label:'SC Aulas',    x:0.20, y:0.50, w:0.60, h:0.35, color:'#06b6d4', type:'Santa Cruz' },
+];
 
-  if (aulaNum !== null) {
-    if (aulaNum >= 1 && aulaNum <= 3) zKey = 'pb-aulas-123';
-    else if (aulaNum >= 4 && aulaNum <= 6) zKey = 'pb-aulas-456';
-    else if (aulaNum === 7) zKey = 'p1-aula-7-hib';
-    else if (aulaNum >= 8 && aulaNum <= 12) zKey = 'p1-aulas-8-12';
-    else if (aulaNum >= 13 && aulaNum <= 14) zKey = 'p2-aulas-13-14';
-    else if (aulaNum >= 15 && aulaNum <= 22) zKey = 'p2-aulas-15-22';
-  } else if (n.includes('hibrida')) {
-    zKey = 'p1-aula-7-hib';
-  } else if (n.includes('usos') || n.includes('multiple')) {
-    zKey = 'p2-usosmult';
-  } else if (n.includes('lab')) {
-    if (n.includes('amb')) zKey = 'pb-lab-amb';
-    else if (n.includes('psico')) zKey = 'pb-lab-psico';
-    else if (n.includes('edu') || n.includes('pine')) zKey = 'p2-labs';
-    else zKey = 'p1-labs'; 
-  } else if (n.includes('data') || n.includes('center')) {
-    zKey = 'p1-datacenter';
-  } else if (n.includes('medic') || n.includes('consult')) {
-    zKey = 'pb-medico';
-  } else if (n.includes('coord') || n.includes('docen') || n.includes('admin') || n.includes('pastoral') || n.includes('sala')) {
-    if (n.includes('p2') || n.includes('2da')) zKey = 'p2-usosmult';
-    else if (n.includes('p1') || n.includes('1ra') || n.includes('pastoral')) zKey = 'p1-coord-top';
-    else zKey = 'pb-coord-top';
-  } else {
-    // Fallbacks si no coincide nada
-    if (n.includes('p2') || n.includes('2da') || n.includes('segunda')) zKey = 'p2-aulas-15-22';
-    else if (n.includes('p1') || n.includes('1ra') || n.includes('primera')) zKey = 'p1-aulas-8-12';
-    else zKey = 'pb-aulas-123';
-  }
-
-  let zone = ZONES.find(z => z.key === zKey);
-  if (!zone) zone = ZONES[0];
-
-  const seed = (ap.serial || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0) || Math.random() * 1000;
+/* Funciones de asignación con jitter aleatorio determinista */
+function jitter(serial: string, zone: any) {
+  const seed = (serial || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0) || Math.random() * 1000;
   const jx = ((seed * 7919) % 1000) / 1000;
   const jy = ((seed * 6271) % 1000) / 1000;
-
   return {
     x: zone.x + 0.02 + jx * (zone.w - 0.04),
     y: zone.y + 0.02 + jy * (zone.h - 0.04),
@@ -85,41 +59,85 @@ function assignZone(ap: AccessPoint): { x: number; y: number; zoneKey: string } 
   };
 }
 
-/* ── Paleta de colores térmica continua (Magma/Turbo style) ─────────────────────── */
-function buildColormap(): Uint8ClampedArray {
+function assignTachina(ap: AccessPoint) {
+  const n = (ap.name || '').toLowerCase();
+  const aulaMatch = n.match(/aula[\s-]*(\d+)/) || n.match(/a(\d+)/);
+  const aulaNum = aulaMatch ? parseInt(aulaMatch[1]) : null;
+  let zKey = '';
+  if (aulaNum !== null) {
+    if (aulaNum >= 1 && aulaNum <= 3) zKey = 'pb-aulas-123';
+    else if (aulaNum >= 4 && aulaNum <= 6) zKey = 'pb-aulas-456';
+    else if (aulaNum === 7) zKey = 'p1-aula-7-hib';
+    else if (aulaNum >= 8 && aulaNum <= 12) zKey = 'p1-aulas-8-12';
+    else if (aulaNum >= 13 && aulaNum <= 14) zKey = 'p2-aulas-13-14';
+    else if (aulaNum >= 15 && aulaNum <= 22) zKey = 'p2-aulas-15-22';
+  } else if (n.includes('hibrida')) { zKey = 'p1-aula-7-hib';
+  } else if (n.includes('usos') || n.includes('multiple')) { zKey = 'p2-usosmult';
+  } else if (n.includes('lab')) {
+    if (n.includes('amb')) zKey = 'pb-lab-amb';
+    else if (n.includes('psico')) zKey = 'pb-lab-psico';
+    else if (n.includes('edu') || n.includes('pine')) zKey = 'p2-labs';
+    else zKey = 'p1-labs'; 
+  } else if (n.includes('data') || n.includes('center')) { zKey = 'p1-datacenter';
+  } else if (n.includes('medic') || n.includes('consult')) { zKey = 'pb-medico';
+  } else if (n.includes('coord') || n.includes('docen') || n.includes('admin') || n.includes('pastoral') || n.includes('sala')) {
+    if (n.includes('p2') || n.includes('2da')) zKey = 'p2-usosmult';
+    else if (n.includes('p1') || n.includes('1ra') || n.includes('pastoral')) zKey = 'p1-coord-top';
+    else zKey = 'pb-coord-top';
+  } else {
+    if (n.includes('p2') || n.includes('2da') || n.includes('segunda')) zKey = 'p2-aulas-15-22';
+    else if (n.includes('p1') || n.includes('1ra') || n.includes('primera')) zKey = 'p1-aulas-8-12';
+    else zKey = 'pb-aulas-123';
+  }
+  const zone = TACHINA_ZONES.find(z => z.key === zKey) || TACHINA_ZONES[0];
+  return jitter(ap.serial, zone);
+}
+
+function assignCentral(ap: AccessPoint) {
+  const n = (ap.name || '').toLowerCase();
+  let zKey = 'campus-admin';
+  if (n.includes('biblio')) zKey = 'campus-biblio';
+  else if (n.includes('lab')) zKey = 'campus-lab';
+  else if (n.includes('aula') && (n.includes('b') || n.includes('2'))) zKey = 'campus-aulas-b';
+  else if (n.includes('aula')) zKey = 'campus-aulas-a';
+  const zone = CENTRAL_ZONES.find(z => z.key === zKey) || CENTRAL_ZONES[0];
+  return jitter(ap.serial, zone);
+}
+
+function assignSantaCruz(ap: AccessPoint) {
+  const n = (ap.name || '').toLowerCase();
+  let zKey = 'sc-aulas';
+  if (n.includes('bloque1') || n.includes('bloque 1') || n.includes('b1')) zKey = 'sc-b1';
+  else if (n.includes('bloque2') || n.includes('bloque 2') || n.includes('b2')) zKey = 'sc-b2';
+  const zone = SC_ZONES.find(z => z.key === zKey) || SC_ZONES[0];
+  return jitter(ap.serial, zone);
+}
+
+const COLORMAP = buildColormap();
+function buildColormap() {
   const cm = new Uint8ClampedArray(256 * 4);
   for (let i = 0; i < 256; i++) {
     const t = i / 255;
     let r, g, b;
-    if (t < 0.2) {
-      r = 0; g = 0; b = Math.round(t * 5 * 255); 
-    } else if (t < 0.4) {
-      r = 0; g = Math.round((t - 0.2) * 5 * 255); b = 255; 
-    } else if (t < 0.6) {
-      r = Math.round((t - 0.4) * 5 * 255); g = 255; b = Math.round(255 - (t - 0.4) * 5 * 255); 
-    } else if (t < 0.8) {
-      r = 255; g = Math.round(255 - (t - 0.6) * 5 * 255); b = 0; 
-    } else {
-      r = 255; g = Math.round((t - 0.8) * 5 * 255); b = Math.round((t - 0.8) * 5 * 255); 
-    }
-    cm[i * 4 + 0] = r;
-    cm[i * 4 + 1] = g;
-    cm[i * 4 + 2] = b;
-    cm[i * 4 + 3] = Math.round(Math.pow(t, 1.2) * 200); 
+    if (t < 0.2) { r = 0; g = 0; b = Math.round(t * 5 * 255); }
+    else if (t < 0.4) { r = 0; g = Math.round((t - 0.2) * 5 * 255); b = 255; }
+    else if (t < 0.6) { r = Math.round((t - 0.4) * 5 * 255); g = 255; b = Math.round(255 - (t - 0.4) * 5 * 255); }
+    else if (t < 0.8) { r = 255; g = Math.round(255 - (t - 0.6) * 5 * 255); b = 0; }
+    else { r = 255; g = Math.round((t - 0.8) * 5 * 255); b = Math.round((t - 0.8) * 5 * 255); }
+    cm[i*4] = r; cm[i*4+1] = g; cm[i*4+2] = b; cm[i*4+3] = Math.round(Math.pow(t, 1.2) * 200); 
   }
   return cm;
 }
 
-const COLORMAP = buildColormap();
-
-/* ── Render del heatmap en canvas ──────────────────────────── */
+/* ── Render del heatmap ──────────────────────────── */
 function renderHeatmap(
   canvas: HTMLCanvasElement,
   aps: AccessPoint[],
   maxClients: number,
   showZones: boolean,
   showAPs: boolean,
-  isDark: boolean
+  isDark: boolean,
+  campus: Campus
 ) {
   const W = canvas.width;
   const H = canvas.height;
@@ -127,9 +145,11 @@ function renderHeatmap(
 
   ctx.clearRect(0, 0, W, H);
 
-  // Zonas del campus (Blueprint Style)
+  const zones = campus === 'tachina' ? TACHINA_ZONES : campus === 'central' ? CENTRAL_ZONES : SC_ZONES;
+  const assignFn = campus === 'tachina' ? assignTachina : campus === 'central' ? assignCentral : assignSantaCruz;
+
   if (showZones) {
-    ZONES.forEach(z => {
+    zones.forEach(z => {
       const x = z.x * W, y = z.y * H, w = z.w * W, h = z.h * H;
       
       ctx.strokeStyle = isDark ? `${z.color}60` : `${z.color}90`;
@@ -143,37 +163,36 @@ function renderHeatmap(
       ctx.fillStyle = isDark ? `${z.color}15` : `${z.color}25`;
       ctx.fill();
 
-      // Etiqueta de zona
       ctx.fillStyle = isDark ? `${z.color}` : `${z.color}`;
       ctx.font = `600 ${Math.max(9, Math.min(11, w * 0.12))}px Inter, monospace`;
       ctx.textAlign = 'left';
       ctx.fillText(z.label.toUpperCase(), x + 6, y + 14);
     });
 
-    // Títulos de los pisos
-    ctx.font = 'bold 16px Inter, sans-serif';
-    ctx.textBaseline = 'top';
-    [
-      { label:'EDIFICIO ADSIS — SEGUNDA PLANTA (N.+ 8.22)', y:0.015 },
-      { label:'EDIFICIO ADSIS — PRIMERA PLANTA (N.+ 4.11)', y:0.345 },
-      { label:'EDIFICIO ADSIS — PLANTA BAJA (N.+ 0.18)',    y:0.675 },
-    ].forEach(({ label, y }) => {
-      ctx.textAlign = 'center';
-      ctx.fillStyle = isDark ? '#ffffff60' : '#00000060';
-      ctx.fillText(label, W * 0.5, H * y);
-    });
+    if (campus === 'tachina') {
+      ctx.font = 'bold 16px Inter, sans-serif';
+      ctx.textBaseline = 'top';
+      [
+        { label:'EDIFICIO ADSIS — SEGUNDA PLANTA (N.+ 8.22)', y:0.015 },
+        { label:'EDIFICIO ADSIS — PRIMERA PLANTA (N.+ 4.11)', y:0.345 },
+        { label:'EDIFICIO ADSIS — PLANTA BAJA (N.+ 0.18)',    y:0.675 },
+      ].forEach(({ label, y }) => {
+        ctx.textAlign = 'center';
+        ctx.fillStyle = isDark ? '#ffffff60' : '#00000060';
+        ctx.fillText(label, W * 0.5, H * y);
+      });
+    }
   }
 
-  // ── Capa de calor continua ──────────────────────────────────────────
   const offCanvas = document.createElement('canvas');
   offCanvas.width = W; offCanvas.height = H;
   const off = offCanvas.getContext('2d')!;
 
   const onlineAPs = aps.filter(a => a.status !== 'offline');
-  const radius = Math.round(Math.min(W, H) * 0.15); // Radio adaptado a la nueva escala
+  const radius = Math.round(Math.min(W, H) * (campus === 'tachina' ? 0.15 : 0.22));
 
   onlineAPs.forEach(ap => {
-    const pos = assignZone(ap);
+    const pos = assignFn(ap);
     const cx  = pos.x * W;
     const cy  = pos.y * H;
     const intensity = Math.max(0.15, ap.clients / Math.max(1, maxClients));
@@ -206,10 +225,9 @@ function renderHeatmap(
   ctx.drawImage(offCanvas, 0, 0);
   ctx.globalAlpha = 1.0;
 
-  // ── APs como puntos "Target" ────────────────────────────────────────
   if (showAPs) {
     onlineAPs.forEach(ap => {
-      const pos = assignZone(ap);
+      const pos = assignFn(ap);
       const cx  = pos.x * W;
       const cy  = pos.y * H;
       const statusColor = ap.status === 'warning' ? '#f59e0b' : '#10b981';
@@ -235,7 +253,7 @@ function renderHeatmap(
     });
 
     aps.filter(a => a.status === 'offline').forEach(ap => {
-      const pos = assignZone(ap);
+      const pos = assignFn(ap);
       const cx  = pos.x * W;
       const cy  = pos.y * H;
       ctx.strokeStyle = '#ef4444';
@@ -259,15 +277,18 @@ export default function Heatmap() {
   const [showAPs,   setShowAPs]   = useState(true);
   const [zoom,      setZoom]      = useState(1);
   const [selected,  setSelected]  = useState<AccessPoint | null>(null);
+  const [campus,    setCampus]    = useState<Campus>('tachina');
 
-  // Filtrar estrictamente para que solo aparezcan APs de Tachina
   const aps = useMemo(() => {
     if (!rawAps) return [];
     return rawAps.filter(a => {
       const str = `${a.name} ${a.group} ${a.building}`.toLowerCase();
-      return str.includes('tachina') || str.includes('adsis');
+      if (campus === 'tachina') return str.includes('tachina') || str.includes('adsis');
+      if (campus === 'santacruz') return str.includes('santa cruz') || str.includes('sc-');
+      // Para Campus Central tomamos todo lo que no es Tachina ni Santa Cruz
+      return !str.includes('tachina') && !str.includes('adsis') && !str.includes('santa cruz') && !str.includes('sc-');
     });
-  }, [rawAps]);
+  }, [rawAps, campus]);
 
   const maxClients = useMemo(() =>
     Math.max(1, ...(aps ?? []).map(a => a.clients)),
@@ -276,8 +297,11 @@ export default function Heatmap() {
 
   const activeZones = useMemo(() => {
     if (!aps) return [];
-    const apZones = aps.map(ap => ({ ap, pos: assignZone(ap) }));
-    return ZONES.map(z => {
+    const zones = campus === 'tachina' ? TACHINA_ZONES : campus === 'central' ? CENTRAL_ZONES : SC_ZONES;
+    const assignFn = campus === 'tachina' ? assignTachina : campus === 'central' ? assignCentral : assignSantaCruz;
+
+    const apZones = aps.map(ap => ({ ap, pos: assignFn(ap) }));
+    return zones.map(z => {
       const zoneAPs = apZones.filter(az => az.pos.zoneKey === z.key).map(az => az.ap);
       return {
         ...z,
@@ -287,21 +311,20 @@ export default function Heatmap() {
         maxSignal: zoneAPs.length ? Math.max(...zoneAPs.map(a => a.clients)) : 0,
       };
     }).filter(z => z.totalAPs > 0).sort((a, b) => b.totalClients - a.totalClients);
-  }, [aps]);
+  }, [aps, campus]);
 
-  // Pintar canvas cuando cambian datos
   useEffect(() => {
     const canvas = canvasRef.current;
     const cont   = containerRef.current;
     if (!canvas || !cont || !aps) return;
 
     const W = cont.clientWidth  || 900;
-    const H = Math.round(W * 0.75); // Más alto para que entren bien los 3 pisos
+    const H = Math.round(W * (campus === 'tachina' ? 0.75 : 0.58));
     canvas.width  = W;
     canvas.height = H;
 
-    renderHeatmap(canvas, aps, maxClients, showZones, showAPs, isDark);
-  }, [aps, maxClients, showZones, showAPs, isDark]);
+    renderHeatmap(canvas, aps, maxClients, showZones, showAPs, isDark, campus);
+  }, [aps, maxClients, showZones, showAPs, isDark, campus]);
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!aps || !canvasRef.current) return;
@@ -309,10 +332,12 @@ export default function Heatmap() {
     const mx   = (e.clientX - rect.left) / rect.width;
     const my   = (e.clientY - rect.top)  / rect.height;
 
+    const assignFn = campus === 'tachina' ? assignTachina : campus === 'central' ? assignCentral : assignSantaCruz;
+
     let closest: AccessPoint | null = null;
     let minDist = Infinity;
     aps.forEach(ap => {
-      const pos  = assignZone(ap);
+      const pos  = assignFn(ap);
       const dist = Math.hypot(pos.x - mx, pos.y - my);
       if (dist < minDist) { minDist = dist; closest = ap; }
     });
@@ -325,34 +350,56 @@ export default function Heatmap() {
   const onlineCount  = (aps ?? []).filter(a => a.status === 'online').length;
   const offlineCount = (aps ?? []).filter(a => a.status === 'offline').length;
 
+  const campusTitle = campus === 'tachina' ? 'Campus Tachina (ADSIS)' : campus === 'central' ? 'Campus Central' : 'Campus Santa Cruz';
+
   return (
     <div className="space-y-6 card-enter pb-10">
-      {/* Header */}
+      {/* Header y Selector de Campus */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
             <Target className="text-cyan-500" />
-            Radar de Cobertura (Edificio ADSIS)
+            Radar de Cobertura
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Análisis térmico y estructural de densidad WiFi - Campus Tachina
+            Análisis térmico y estructural de densidad WiFi
           </p>
         </div>
+        
+        {/* Selector de Campus (Dropdown) */}
+        <div className="flex items-center gap-2 relative group">
+          <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+            <MapIcon size={14} className="text-cyan-500" />
+          </div>
+          <select
+            value={campus}
+            onChange={e => setCampus(e.target.value as Campus)}
+            className="pl-9 pr-8 py-2 rounded-lg text-sm font-bold bg-white dark:bg-[#0d1526] text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-[#1e3460] shadow-sm appearance-none outline-none focus:ring-2 focus:ring-cyan-500/50 cursor-pointer hover:border-cyan-500 transition-colors"
+          >
+            <option value="tachina">📍 Campus Tachina (Edif. ADSIS)</option>
+            <option value="central">📍 Campus Central (Generales)</option>
+            <option value="santacruz">📍 Campus Santa Cruz (Generales)</option>
+          </select>
+          <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+            <ChevronDown size={14} className="text-slate-400" />
+          </div>
+        </div>
+
         <div className="flex flex-wrap items-center gap-3">
           <button onClick={() => setShowZones(v => !v)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${showZones ? 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30' : 'bg-slate-100 dark:bg-white/5 text-slate-500 border border-transparent'}`}>
-            <Layers size={16} /> Estructura
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${showZones ? 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30' : 'bg-slate-100 dark:bg-white/5 text-slate-500 border border-transparent'}`}>
+            <Layers size={14} /> Estructura
           </button>
           <button onClick={() => setShowAPs(v => !v)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${showAPs ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' : 'bg-slate-100 dark:bg-white/5 text-slate-500 border border-transparent'}`}>
-            <Wifi size={16} /> Dispositivos
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${showAPs ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' : 'bg-slate-100 dark:bg-white/5 text-slate-500 border border-transparent'}`}>
+            <Wifi size={14} /> Dispositivos
           </button>
           <div className="h-6 w-px bg-slate-300 dark:bg-white/10 mx-1" />
-          <button onClick={() => setZoom(z => Math.min(2, z + 0.25))} className="p-2 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"><ZoomIn size={16} /></button>
-          <button onClick={() => setZoom(z => Math.max(0.5, z - 0.25))} className="p-2 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"><ZoomOut size={16} /></button>
-          <button onClick={() => { if (aps) renderHeatmap(canvasRef.current!, aps, maxClients, showZones, showAPs, isDark); }}
-            className="p-2 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-cyan-500/20 hover:text-cyan-400 transition-colors">
-            <RefreshCw size={16} />
+          <button onClick={() => setZoom(z => Math.min(2, z + 0.25))} className="p-1.5 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"><ZoomIn size={14} /></button>
+          <button onClick={() => setZoom(z => Math.max(0.5, z - 0.25))} className="p-1.5 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"><ZoomOut size={14} /></button>
+          <button onClick={() => { if (aps) renderHeatmap(canvasRef.current!, aps, maxClients, showZones, showAPs, isDark, campus); }}
+            className="p-1.5 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-cyan-500/20 hover:text-cyan-400 transition-colors">
+            <RefreshCw size={14} />
           </button>
         </div>
       </div>
@@ -420,7 +467,7 @@ export default function Heatmap() {
           <div className="p-4 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
             <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
               <Activity size={16} className="text-purple-500" />
-              Sectores Estructurales (ADSIS)
+              Sectores Estructurales
             </h3>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -458,7 +505,7 @@ export default function Heatmap() {
         <div className="p-4 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
           <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
             <Users size={16} className="text-cyan-500" />
-            Ranking de Antenas por Carga
+            Ranking de Antenas por Carga ({campusTitle})
           </h3>
         </div>
         <div className="overflow-x-auto p-2">
