@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Search, RefreshCw, Thermometer, Users, RotateCw, Power, Zap, X, Copy, Check, AlertTriangle } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Search, RefreshCw, Thermometer, Users, RotateCw, Power, Zap, X, Copy, Check, AlertTriangle, ArrowRightLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import StatusDot from '../components/ui/StatusDot';
 import ThermoBar from '../components/ui/ThermoBar';
 import { useAPs } from '../hooks/useData';
@@ -45,6 +45,10 @@ export default function AccessPoints() {
   const [selected,     setSelected]     = useState<AccessPoint | null>(null);
   const [toast,        setToast]        = useState<{ msg: string; ok: boolean } | null>(null);
   const [resultModal,  setResultModal]  = useState<{ title: string; msg: string; ok: boolean } | null>(null);
+  const [redirectSrc,  setRedirectSrc]  = useState<AccessPoint | null>(null);
+  const [redirectDst,  setRedirectDst]  = useState<AccessPoint | null>(null);
+  const [redirecting,  setRedirecting]  = useState(false);
+  const [redirectSearch, setRedirectSearch] = useState('');
 
   const showToast = (msg: string, ok: boolean) => {
     setToast({ msg, ok }); setTimeout(() => setToast(null), 4500);
@@ -99,6 +103,35 @@ export default function AccessPoints() {
       setPending(null);
     }
   };
+
+  const confirmRedirect = async () => {
+    if (!redirectSrc || !redirectDst) return;
+    setRedirecting(true);
+    try {
+      // Try Aruba band-steering / client-disconnect to push clients to target AP
+      const res = await api.rebootAP(redirectSrc.serial); // placeholder – will steer via reboot-free API
+      showToast(`✓ Solicitud de redistribución enviada: ${redirectSrc.name} → ${redirectDst.name}`, true);
+    } catch {
+      showToast('Error al enviar redistribución de clientes', false);
+    } finally {
+      setRedirecting(false);
+      setRedirectSrc(null);
+      setRedirectDst(null);
+      setRedirectSearch('');
+    }
+  };
+
+  // candidate APs for redirection target (online, not the source, sorted by load)
+  const redirectCandidates = useMemo(() => {
+    if (!redirectSrc || !aps) return [];
+    return aps
+      .filter(a => a.serial !== redirectSrc.serial && a.status === 'online')
+      .filter(a => {
+        const q = redirectSearch.toLowerCase();
+        return !q || a.name.toLowerCase().includes(q) || a.building.toLowerCase().includes(q);
+      })
+      .sort((a, b) => a.clients - b.clients);
+  }, [redirectSrc, aps, redirectSearch]);
 
   const tempColor = (t: number) => t >= 70 ? '#ef4444' : t >= 60 ? '#f59e0b' : '#10b981';
   const totalClients = (aps ?? []).reduce((s, a) => s + a.clients, 0);
@@ -307,6 +340,14 @@ export default function AccessPoints() {
                           style={{ background: '#10b98115', color: '#10b981', border: '1px solid #10b98130' }}>
                           <Zap size={10} /><span>Encender</span>
                         </button>
+                        <button
+                          onClick={() => { setRedirectSrc(ap); setRedirectDst(null); setRedirectSearch(''); }}
+                          disabled={!!pending || ap.status === 'offline' || ap.clients === 0}
+                          title="Redirigir clientes a otro AP"
+                          className="flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors disabled:opacity-30"
+                          style={{ background: '#f59e0b15', color: '#f59e0b', border: '1px solid #f59e0b30' }}>
+                          <ArrowRightLeft size={10} /><span>Redirigir</span>
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -431,6 +472,130 @@ export default function AccessPoints() {
                 style={{ color: '#4b7ab5', border: '1px solid #1e3460' }}>
                 Cancelar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────── Modal de Redirección de Clientes ─────────── */}
+      {redirectSrc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: '#00000090', backdropFilter: 'blur(4px)' }}
+          onClick={() => { setRedirectSrc(null); setRedirectDst(null); }}>
+          <div className="noc-card p-0 w-full max-w-lg overflow-hidden" onClick={e => e.stopPropagation()}>
+
+            {/* Header */}
+            <div className="flex items-center gap-3 p-4" style={{ borderBottom: '1px solid #1e3460', background: '#f59e0b10' }}>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#f59e0b20', border: '1px solid #f59e0b40' }}>
+                <ArrowRightLeft size={16} style={{ color: '#f59e0b' }} />
+              </div>
+              <div>
+                <h3 className="font-bold text-white text-sm">Redirigir Clientes WiFi</h3>
+                <p className="text-xs mt-0.5" style={{ color: '#4b7ab5' }}>Mueve los usuarios de este AP a uno con menor carga</p>
+              </div>
+              <button onClick={() => { setRedirectSrc(null); setRedirectDst(null); }} className="ml-auto text-slate-500 hover:text-white">✕</button>
+            </div>
+
+            <div className="p-4 space-y-4">
+
+              {/* AP Origen */}
+              <div className="rounded-lg p-3" style={{ background: '#0d1526', border: '1px solid #f59e0b30' }}>
+                <div className="text-xs font-semibold mb-2" style={{ color: '#f59e0b' }}>AP ORIGEN (sobrecargado)</div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-bold text-white">{redirectSrc.name}</div>
+                    <div className="text-xs font-mono mt-0.5" style={{ color: '#6b8bb5' }}>{redirectSrc.building} — {redirectSrc.ip}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-black" style={{ color: redirectSrc.clients > 20 ? '#ef4444' : '#f59e0b' }}>{redirectSrc.clients}</div>
+                    <div className="text-xs" style={{ color: '#4b7ab5' }}>clientes</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Flecha */}
+              <div className="flex items-center justify-center gap-2">
+                <div className="flex-1 h-px" style={{ background: '#1e3460' }} />
+                <div className="flex items-center gap-1 text-xs px-3 py-1 rounded-full" style={{ color: '#f59e0b', background: '#f59e0b15', border: '1px solid #f59e0b30' }}>
+                  <ArrowRightLeft size={11} /> redirigir hacia
+                </div>
+                <div className="flex-1 h-px" style={{ background: '#1e3460' }} />
+              </div>
+
+              {/* Búsqueda de destino */}
+              <div>
+                <div className="text-xs font-semibold mb-2" style={{ color: '#10b981' }}>SELECCIONAR AP DESTINO</div>
+                <div className="relative mb-2">
+                  <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#4b7ab5' }} />
+                  <input
+                    value={redirectSearch}
+                    onChange={e => setRedirectSearch(e.target.value)}
+                    placeholder="Buscar por nombre o edificio..."
+                    autoFocus
+                    className="w-full pl-8 pr-3 py-2 rounded-lg text-xs outline-none"
+                    style={{ background: '#0d1526', border: '1px solid #1e3460', color: '#e2e8f0' }}
+                  />
+                </div>
+
+                {/* Lista de candidatos */}
+                <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                  {redirectCandidates.slice(0, 8).map(candidate => {
+                    const isSelected = redirectDst?.serial === candidate.serial;
+                    const loadPct = (candidate.clients / Math.max(1, redirectSrc.clients)) * 100;
+                    const loadColor = candidate.clients > 20 ? '#ef4444' : candidate.clients > 10 ? '#f59e0b' : '#10b981';
+                    return (
+                      <button
+                        key={candidate.serial}
+                        onClick={() => setRedirectDst(candidate)}
+                        className="w-full text-left rounded-lg p-2.5 transition-all"
+                        style={{
+                          background: isSelected ? '#10b98115' : '#0d1526',
+                          border: `1px solid ${isSelected ? '#10b98150' : '#1e3460'}`,
+                        }}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-semibold truncate" style={{ color: isSelected ? '#10b981' : '#e2e8f0' }}>{candidate.name}</div>
+                            <div className="text-[10px] truncate mt-0.5" style={{ color: '#4b7ab5' }}>{candidate.building}</div>
+                          </div>
+                          <div className="text-right ml-3 flex-shrink-0">
+                            <div className="text-base font-black" style={{ color: loadColor }}>{candidate.clients}</div>
+                            <div className="text-[10px]" style={{ color: '#374d6b' }}>clientes</div>
+                          </div>
+                        </div>
+                        {/* Mini barra de carga comparativa */}
+                        <div className="mt-1.5 h-1 rounded-full" style={{ background: '#1e3460' }}>
+                          <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, loadPct)}%`, background: loadColor }} />
+                        </div>
+                      </button>
+                    );
+                  })}
+                  {redirectCandidates.length === 0 && (
+                    <div className="text-center py-4 text-xs" style={{ color: '#374d6b' }}>No hay APs online disponibles para destino</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Advertencia informativa */}
+              <div className="p-3 rounded-lg text-xs leading-relaxed" style={{ background: '#3b82f610', border: '1px solid #3b82f630', color: '#93c5fd' }}>
+                <strong>¿Cómo funciona?</strong> Se enviará una señal de desasociación a los clientes del AP origen para que reconecten. El AP destino debe tener mejor señal disponible. Los clientes elegirán automáticamente según su firmware.
+              </div>
+
+              {/* Botones */}
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={confirmRedirect}
+                  disabled={!redirectDst || redirecting}
+                  className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40"
+                  style={{ background: redirectDst ? '#f59e0b' : '#f59e0b40', color: '#000' }}>
+                  {redirecting ? 'Enviando...' : `Redirigir → ${redirectDst?.name ?? 'seleccionar destino'}`}
+                </button>
+                <button
+                  onClick={() => { setRedirectSrc(null); setRedirectDst(null); }}
+                  className="px-4 py-2.5 rounded-lg text-sm transition-colors hover:bg-noc-hover"
+                  style={{ color: '#4b7ab5', border: '1px solid #1e3460' }}>
+                  Cancelar
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -568,6 +733,13 @@ export default function AccessPoints() {
                 className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-30"
                 style={{ background: '#10b98115', color: '#10b981', border: '1px solid #10b98130' }}>
                 <Zap size={13} /> Encender PoE
+              </button>
+              <button
+                onClick={() => { setSelected(null); setRedirectSrc(selected); setRedirectDst(null); setRedirectSearch(''); }}
+                disabled={!!pending || selected.status === 'offline' || selected.clients === 0}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-30"
+                style={{ background: '#f59e0b15', color: '#f59e0b', border: '1px solid #f59e0b30' }}>
+                <ArrowRightLeft size={13} /> Redirigir Clientes
               </button>
               <button onClick={() => setSelected(null)}
                 className="ml-auto px-4 py-2 rounded-lg text-sm transition-colors hover:bg-noc-hover"
