@@ -9,3 +9,7 @@ export const useServers   = () => useQuery({ queryKey:['servers'],   queryFn: ap
 export const useClients   = () => useQuery({ queryKey:['clients'],   queryFn: api.getClients,   refetchInterval: 60_000, staleTime: 0 });
 export const useAlerts    = () => useQuery({ queryKey:['alerts'],    queryFn: api.getAlerts,    refetchInterval: 20_000, staleTime: 0 });
 export const useBandwidth = () => useQuery({ queryKey:['bandwidth'], queryFn: api.getBandwidth, refetchInterval: 30_000, staleTime: 0 });
+
+/* Estado del proxy Aruba: null → modo demostración */
+export const useProxyStatus = () =>
+  useQuery({ queryKey:['proxyStatus'], queryFn: api.getProxyStatus, refetchInterval: 30_000, staleTime: 0, retry: false });

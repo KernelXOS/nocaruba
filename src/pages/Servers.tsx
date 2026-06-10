@@ -23,15 +23,15 @@ function ServerCard({ srv }: { srv: ServerType }) {
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-start gap-3">
-          <div className="p-2.5 rounded-xl" style={{ background:'#06b6d415' }}>
-            <Server size={18} style={{ color:'#06b6d4' }} />
+          <div className="p-2.5 rounded-lg" style={{ background:'var(--accent-soft)' }}>
+            <Server size={18} style={{ color:'var(--accent)' }} />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-sm text-white">{srv.name}</span>
+              <span className="font-bold text-sm text-[color:var(--text)]">{srv.name}</span>
               <StatusDot status={srv.status} size={7} label />
             </div>
-            <div className="text-xs mt-0.5" style={{ color:'#4b7ab5' }}>{srv.role}</div>
+            <div className="text-xs mt-0.5" style={{ color:'var(--muted)' }}>{srv.role}</div>
             <div className="text-xs font-mono mt-0.5" style={{ color:'#3b82f6' }}>{srv.ip}</div>
           </div>
         </div>
@@ -39,19 +39,19 @@ function ServerCard({ srv }: { srv: ServerType }) {
           <div className="text-xs font-mono" style={{ color: tempColor }}>
             <Thermometer size={10} className="inline mr-1" />{srv.temperature}°C
           </div>
-          <div className="text-xs mt-1" style={{ color:'#374d6b', fontSize:10 }}>
+          <div className="text-xs mt-1" style={{ color:'var(--dim)', fontSize:10 }}>
             {srv.os}
           </div>
-          <div className="text-xs mt-0.5 font-mono" style={{ color:'#2a3f6e', fontSize:10 }}>
+          <div className="text-xs mt-0.5 font-mono" style={{ color:'var(--dim)', fontSize:10 }}>
             UP: {fmtUptime(srv.uptime)}
           </div>
         </div>
       </div>
 
       {/* Thermal gauge — big visual */}
-      <div className="mb-4 rounded-xl p-3" style={{ background:'#0a0f1f', border:'1px solid #1e3460' }}>
+      <div className="mb-4 rounded-lg p-3" style={{ background:'var(--panel-2)', border:'1px solid var(--border)' }}>
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-semibold" style={{ color:'#6b8bb5' }}>
+          <span className="text-xs font-semibold" style={{ color:'var(--text-2)' }}>
             <Thermometer size={11} className="inline mr-1" />Temperatura
           </span>
           <span className="text-lg font-mono font-bold" style={{ color: tempColor }}>
@@ -59,58 +59,58 @@ function ServerCard({ srv }: { srv: ServerType }) {
           </span>
         </div>
         {/* Visual thermometer bar */}
-        <div className="relative h-4 rounded-full overflow-hidden" style={{ background:'#1e3460' }}>
+        <div className="relative h-4 rounded-full overflow-hidden" style={{ background:'var(--border)' }}>
           <div className="h-full rounded-full transition-all duration-700"
             style={{
               width: `${(srv.temperature / 90) * 100}%`,
               background: `linear-gradient(90deg, #10b981, ${srv.temperature >= 75 ? '#ef4444' : srv.temperature >= 65 ? '#f59e0b' : '#10b981'})`,
             }} />
           {/* threshold markers */}
-          <div className="absolute top-0 bottom-0 w-px" style={{ left:`${(65/90)*100}%`, background:'#f59e0b60' }} />
-          <div className="absolute top-0 bottom-0 w-px" style={{ left:`${(75/90)*100}%`, background:'#ef444460' }} />
+          <div className="absolute top-0 bottom-0 w-px" style={{ left:`${(65/90)*100}%`, background:'var(--sev-warning-border)' }} />
+          <div className="absolute top-0 bottom-0 w-px" style={{ left:`${(75/90)*100}%`, background:'var(--sev-critical-border)' }} />
         </div>
-        <div className="flex justify-between text-xs mt-1" style={{ color:'#2a3f6e', fontSize:9 }}>
-          <span>0°C</span><span style={{ color:'#f59e0b60' }}>65°C aviso</span><span style={{ color:'#ef444660' }}>75°C crítico</span><span>90°C</span>
+        <div className="flex justify-between text-xs mt-1" style={{ color:'var(--dim)', fontSize:9 }}>
+          <span>0°C</span><span style={{ color:'var(--sev-warning-border)' }}>65°C aviso</span><span style={{ color:'#ef444660' }}>75°C crítico</span><span>90°C</span>
         </div>
       </div>
 
       {/* Resource bars */}
       <div className="grid grid-cols-3 gap-3 mb-4">
-        <div className="rounded-lg p-3 text-center" style={{ background:'#0d1526', border:'1px solid #1e3460' }}>
+        <div className="rounded-lg p-3 text-center" style={{ background:'var(--panel)', border:'1px solid var(--border)' }}>
           <Cpu size={14} style={{ color:'#8b5cf6', margin:'0 auto 4px' }} />
           <div className="text-lg font-mono font-bold" style={{ color: srv.cpuUsage >= 85 ? '#ef4444' : srv.cpuUsage >= 70 ? '#f59e0b' : '#8b5cf6' }}>
             {srv.cpuUsage}%
           </div>
-          <div className="text-xs mt-1" style={{ color:'#374d6b' }}>CPU</div>
+          <div className="text-xs mt-1" style={{ color:'var(--dim)' }}>CPU</div>
           <div className="mt-2"><ThermoBar value={srv.cpuUsage} warnAt={70} critAt={85} /></div>
         </div>
-        <div className="rounded-lg p-3 text-center" style={{ background:'#0d1526', border:'1px solid #1e3460' }}>
+        <div className="rounded-lg p-3 text-center" style={{ background:'var(--panel)', border:'1px solid var(--border)' }}>
           <MemoryStick size={14} style={{ color:'#3b82f6', margin:'0 auto 4px' }} />
           <div className="text-lg font-mono font-bold" style={{ color: srv.memUsage >= 90 ? '#ef4444' : srv.memUsage >= 80 ? '#f59e0b' : '#3b82f6' }}>
             {srv.memUsage}%
           </div>
-          <div className="text-xs mt-1" style={{ color:'#374d6b' }}>RAM</div>
+          <div className="text-xs mt-1" style={{ color:'var(--dim)' }}>RAM</div>
           <div className="mt-2"><ThermoBar value={srv.memUsage} warnAt={80} critAt={90} /></div>
         </div>
-        <div className="rounded-lg p-3 text-center" style={{ background:'#0d1526', border:'1px solid #1e3460' }}>
-          <HardDrive size={14} style={{ color:'#06b6d4', margin:'0 auto 4px' }} />
-          <div className="text-lg font-mono font-bold" style={{ color: srv.diskUsage >= 90 ? '#ef4444' : srv.diskUsage >= 75 ? '#f59e0b' : '#06b6d4' }}>
+        <div className="rounded-lg p-3 text-center" style={{ background:'var(--panel)', border:'1px solid var(--border)' }}>
+          <HardDrive size={14} style={{ color:'var(--accent)', margin:'0 auto 4px' }} />
+          <div className="text-lg font-mono font-bold" style={{ color: srv.diskUsage >= 90 ? '#ef4444' : srv.diskUsage >= 75 ? '#f59e0b' : 'var(--accent)' }}>
             {srv.diskUsage}%
           </div>
-          <div className="text-xs mt-1" style={{ color:'#374d6b' }}>Disco</div>
+          <div className="text-xs mt-1" style={{ color:'var(--dim)' }}>Disco</div>
           <div className="mt-2"><ThermoBar value={srv.diskUsage} warnAt={75} critAt={90} /></div>
         </div>
       </div>
 
       {/* Services */}
       <div>
-        <div className="text-xs font-medium mb-2" style={{ color:'#6b8bb5' }}>Servicios</div>
+        <div className="text-xs font-medium mb-2" style={{ color:'var(--text-2)' }}>Servicios</div>
         <div className="grid grid-cols-2 gap-1.5">
           {srv.services.map(svc => (
             <div key={svc.name} className="flex items-center gap-2 rounded px-2 py-1.5"
               style={{
-                background: svc.status === 'running' ? '#10b98108' : svc.status === 'warning' ? '#f59e0b10' : '#ef444410',
-                border: `1px solid ${svc.status === 'running' ? '#10b98125' : svc.status === 'warning' ? '#f59e0b25' : '#ef444425'}`,
+                background: svc.status === 'running' ? 'var(--ok-bg)' : svc.status === 'warning' ? 'var(--sev-warning-bg)' : 'var(--sev-critical-bg)',
+                border: `1px solid ${svc.status === 'running' ? 'var(--ok-bg)' : svc.status === 'warning' ? 'var(--sev-warning-bg)' : 'var(--sev-critical-bg)'}`,
               }}>
               {svcIcons[svc.status]}
               <span className="text-xs truncate" style={{ color: svc.status === 'running' ? '#d1fae5' : svc.status === 'warning' ? '#fef3c7' : '#fee2e2' }}>
@@ -135,8 +135,8 @@ export default function Servers() {
   return (
     <div className="space-y-4 card-enter">
       <div>
-        <h1 className="text-lg font-bold text-white">Servidores e Infraestructura</h1>
-        <p className="text-xs mt-0.5" style={{ color:'#4b7ab5' }}>
+        <h1 className="text-lg font-bold text-[color:var(--text)]">Servidores e Infraestructura</h1>
+        <p className="text-xs mt-0.5" style={{ color:'var(--muted)' }}>
           Temperatura, recursos y servicios del Data Center — PUCESE
         </p>
       </div>
@@ -150,15 +150,15 @@ export default function Servers() {
           { label:'RAM Promedio',      value:`${avgMem}%`,   color: avgMem >= 80 ? '#f59e0b' : '#3b82f6' },
         ].map(({ label, value, color }) => (
           <div key={label} className="noc-card p-3">
-            <div className="text-xs" style={{ color:'#6b8bb5' }}>{label}</div>
+            <div className="text-xs" style={{ color:'var(--text-2)' }}>{label}</div>
             <div className="text-2xl font-mono font-bold mt-1" style={{ color }}>{value}</div>
           </div>
         ))}
       </div>
 
       {critical > 0 && (
-        <div className="rounded-xl px-4 py-3 flex items-center gap-3 text-sm"
-          style={{ background:'#ef444415', border:'1px solid #ef444440' }}>
+        <div className="rounded-lg px-4 py-3 flex items-center gap-3 text-sm"
+          style={{ background:'var(--sev-critical-bg)', border:'1px solid var(--sev-critical-border)' }}>
           <Thermometer size={16} style={{ color:'#ef4444' }} />
           <span style={{ color:'#ef4444' }}>
             <strong>{critical} servidor{critical > 1 ? 'es' : ''}</strong> con temperatura o CPU en nivel crítico — revisar refrigeración del rack
@@ -167,7 +167,7 @@ export default function Servers() {
       )}
 
       {isLoading ? (
-        <div className="noc-card p-8 text-center text-sm" style={{ color:'#4b7ab5' }}>Cargando servidores...</div>
+        <div className="noc-card p-8 text-center text-sm" style={{ color:'var(--muted)' }}>Cargando servidores...</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {(servers ?? []).map(s => <ServerCard key={s.id} srv={s} />)}

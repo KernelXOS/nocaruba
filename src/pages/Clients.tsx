@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
-import { Search, Wifi, Signal, Clock } from 'lucide-react';
+import { Search, Wifi, Signal, Clock, Download } from 'lucide-react';
 import { useClients } from '../hooks/useData';
+import { exportCsv } from '../utils/exportCsv';
 import type { Client } from '../types';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -68,8 +69,8 @@ export default function Clients() {
   return (
     <div className="space-y-4 card-enter">
       <div>
-        <h1 className="text-lg font-bold text-white">Clientes Activos</h1>
-        <p className="text-xs mt-0.5" style={{ color:'#4b7ab5' }}>
+        <h1 className="text-lg font-bold text-[color:var(--text)]">Clientes Activos</h1>
+        <p className="text-xs mt-0.5" style={{ color:'var(--muted)' }}>
           Dispositivos conectados a la red inalámbrica — PUCESE
         </p>
       </div>
@@ -77,29 +78,29 @@ export default function Clients() {
       {/* Stats row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="noc-card p-3">
-          <div className="text-xs" style={{ color:'#6b8bb5' }}>Total Conectados</div>
+          <div className="text-xs" style={{ color:'var(--text-2)' }}>Total Conectados</div>
           <div className="text-2xl font-mono font-bold mt-1" style={{ color:'#3b82f6' }}>
             {(clients ?? []).length}
           </div>
         </div>
         <div className="noc-card p-3">
-          <div className="text-xs" style={{ color:'#6b8bb5' }}>Banda 2.4 GHz</div>
+          <div className="text-xs" style={{ color:'var(--text-2)' }}>Banda 2.4 GHz</div>
           <div className="text-2xl font-mono font-bold mt-1" style={{ color:'#f59e0b' }}>{byBand['2.4GHz']}</div>
         </div>
         <div className="noc-card p-3">
-          <div className="text-xs" style={{ color:'#6b8bb5' }}>Banda 5 GHz</div>
+          <div className="text-xs" style={{ color:'var(--text-2)' }}>Banda 5 GHz</div>
           <div className="text-2xl font-mono font-bold mt-1" style={{ color:'#10b981' }}>{byBand['5GHz']}</div>
         </div>
         <div className="noc-card p-3">
-          <div className="text-xs mb-2" style={{ color:'#6b8bb5' }}>Por SSID</div>
+          <div className="text-xs mb-2" style={{ color:'var(--text-2)' }}>Por SSID</div>
           <div className="space-y-1">
             {Object.entries(bySsid).map(([ssid, n]) => (
               <div key={ssid} className="flex items-center gap-2">
-                <div className="h-1 rounded-full flex-1" style={{ background:'#1e3460' }}>
+                <div className="h-1 rounded-full flex-1" style={{ background:'var(--border)' }}>
                   <div className="h-full rounded-full" style={{ width:`${(n/(clients?.length||1))*100}%`, background:'#3b82f6' }} />
                 </div>
                 <span className="text-xs font-mono w-8 text-right" style={{ color:'#3b82f6' }}>{n}</span>
-                <span className="text-xs truncate max-w-[80px]" style={{ color:'#4b7ab5', fontSize:10 }}>{ssid}</span>
+                <span className="text-xs truncate max-w-[80px]" style={{ color:'var(--muted)', fontSize:10 }}>{ssid}</span>
               </div>
             ))}
           </div>
@@ -109,11 +110,11 @@ export default function Clients() {
       {/* Filters */}
       <div className="flex flex-wrap gap-2 items-center">
         <div className="relative">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color:'#4b7ab5' }} />
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color:'var(--muted)' }} />
           <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
             placeholder="Buscar hostname, IP, MAC, AP..."
             className="pl-8 pr-3 py-2 rounded-lg text-xs outline-none w-52"
-            style={{ background:'#0d1526', border:'1px solid #1e3460', color:'#e2e8f0' }} />
+            style={{ background:'var(--panel)', border:'1px solid var(--border)', color:'var(--text)' }} />
         </div>
 
         {[
@@ -122,7 +123,7 @@ export default function Clients() {
         ].map(({ label, value, options, set }) => (
           <select key={label} value={value} onChange={e => set(e.target.value)}
             className="px-2 py-2 rounded-lg text-xs outline-none"
-            style={{ background:'#0d1526', border:'1px solid #1e3460', color: value === 'all' ? '#4b7ab5' : '#e2e8f0' }}>
+            style={{ background:'var(--panel)', border:'1px solid var(--border)', color: value === 'all' ? 'var(--muted)' : '#e2e8f0' }}>
             <option value="all">Todos los {label}s</option>
             {options.filter(o => o !== 'all').map(o => <option key={o} value={o}>{o}</option>)}
           </select>
@@ -132,52 +133,64 @@ export default function Clients() {
           {['all','2.4GHz','5GHz'].map(b => (
             <button key={b} onClick={() => { setBandFilter(b); setPage(1); }}
               className="px-3 py-1.5 rounded-lg text-xs transition-colors"
-              style={{ background: bandFilter === b ? '#1d4ed8' : '#0d1526', color: bandFilter === b ? '#fff' : '#4b7ab5', border:`1px solid ${bandFilter === b ? '#3b82f6' : '#1e3460'}` }}>
+              style={{ background: bandFilter === b ? 'var(--accent)' : 'var(--panel)', color: bandFilter === b ? '#fff' : 'var(--muted)', border:`1px solid ${bandFilter === b ? 'var(--accent)' : 'var(--border)'}` }}>
               {b === 'all' ? 'Todas las bandas' : b}
             </button>
           ))}
         </div>
 
-        <span className="text-xs font-mono ml-auto" style={{ color:'#374d6b' }}>
+        <button
+          onClick={() => exportCsv('clientes', filtered as unknown as Record<string, unknown>[], [
+            { key: 'hostname', label: 'Hostname' }, { key: 'ip', label: 'IP' }, { key: 'mac', label: 'MAC' },
+            { key: 'ap', label: 'AP' }, { key: 'ssid', label: 'SSID' }, { key: 'band', label: 'Banda' },
+            { key: 'signal', label: 'Señal dBm' }, { key: 'vlan', label: 'VLAN' }, { key: 'building', label: 'Edificio' },
+          ])}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors hover:border-orange-500"
+          style={{ background:'var(--panel)', color:'var(--accent)', border:'1px solid var(--border)' }}
+          title="Exportar la vista filtrada a CSV"
+        >
+          <Download size={12} /> CSV
+        </button>
+        <span className="text-xs font-mono ml-auto" style={{ color:'var(--dim)' }}>
           {filtered.length} clientes · pág {page}/{totalPages || 1}
         </span>
       </div>
 
       {/* Table */}
       {isLoading ? (
-        <div className="noc-card p-8 text-center text-sm" style={{ color:'#4b7ab5' }}>Cargando clientes...</div>
+        <div className="noc-card p-8 text-center text-sm" style={{ color:'var(--muted)' }}>Cargando clientes...</div>
       ) : (
         <div className="noc-card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr style={{ background:'#0d1526', borderBottom:'1px solid #1e3460' }}>
+                <tr style={{ background:'var(--panel)', borderBottom:'1px solid var(--border)' }}>
                   {['Hostname','IP','MAC','AP / SSID','Banda','Señal','Velocidad','Rx / Tx','Edificio','Conectado hace'].map(h => (
-                    <th key={h} className="px-3 py-3 text-left font-medium whitespace-nowrap" style={{ color:'#4b7ab5' }}>{h}</th>
+                    <th key={h} className="px-3 py-3 text-left font-medium whitespace-nowrap" style={{ color:'var(--muted)' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {paged.map((c: Client, i) => (
                   <tr key={`${c.mac}-${i}`}
-                    style={{ borderBottom:'1px solid #1e346020' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = '#182548')}
+                    style={{ borderBottom:'1px solid var(--border-soft)' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                     <td className="px-3 py-2.5">
-                      <div className="font-medium text-white">{c.hostname}</div>
+                      <div className="font-medium text-[color:var(--text)]">{c.hostname}</div>
                     </td>
                     <td className="px-3 py-2.5 font-mono" style={{ color:'#3b82f6' }}>{c.ip}</td>
-                    <td className="px-3 py-2.5 font-mono" style={{ color:'#4b7ab5', fontSize:10 }}>{c.mac}</td>
+                    <td className="px-3 py-2.5 font-mono" style={{ color:'var(--muted)', fontSize:10 }}>{c.mac}</td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-1">
-                        <Wifi size={10} style={{ color:'#6b8bb5' }} />
-                        <span style={{ color:'#e2e8f0', fontSize:10 }}>{c.ap?.replace('AP-','')}</span>
+                        <Wifi size={10} style={{ color:'var(--text-2)' }} />
+                        <span style={{ color:'var(--text)', fontSize:10 }}>{c.ap?.replace('AP-','')}</span>
                       </div>
-                      <div style={{ color:'#374d6b', fontSize:10 }}>{c.ssid}</div>
+                      <div style={{ color:'var(--dim)', fontSize:10 }}>{c.ssid}</div>
                     </td>
                     <td className="px-3 py-2.5">
                       <span className="px-1.5 py-0.5 rounded font-mono text-xs"
-                        style={{ background: c.band === '5GHz' ? '#10b98115' : '#f59e0b15', color: c.band === '5GHz' ? '#10b981' : '#f59e0b', fontSize:10 }}>
+                        style={{ background: c.band === '5GHz' ? 'var(--ok-bg)' : 'var(--sev-warning-bg)', color: c.band === '5GHz' ? '#10b981' : '#f59e0b', fontSize:10 }}>
                         {c.band}
                       </span>
                     </td>
@@ -186,16 +199,16 @@ export default function Clients() {
                         <Signal size={10} style={{ color: signalColor(c.signal) }} />
                         <span style={{ color: signalColor(c.signal) }}>{c.signal} dBm</span>
                       </div>
-                      <div style={{ color:'#374d6b', fontSize:10 }}>{signalLabel(c.signal)}</div>
+                      <div style={{ color:'var(--dim)', fontSize:10 }}>{signalLabel(c.signal)}</div>
                     </td>
                     <td className="px-3 py-2.5 font-mono" style={{ color:'#8b5cf6' }}>{fmtSpeed(c.speed)}</td>
                     <td className="px-3 py-2.5 font-mono">
                       <div style={{ color:'#10b981', fontSize:10 }}>↓ {fmtBytes(c.rxBytes)}</div>
                       <div style={{ color:'#3b82f6', fontSize:10 }}>↑ {fmtBytes(c.txBytes)}</div>
                     </td>
-                    <td className="px-3 py-2.5" style={{ color:'#6b8bb5', fontSize:10 }}>{c.building}</td>
+                    <td className="px-3 py-2.5" style={{ color:'var(--text-2)', fontSize:10 }}>{c.building}</td>
                     <td className="px-3 py-2.5">
-                      <div className="flex items-center gap-1" style={{ color:'#4b7ab5', fontSize:10 }}>
+                      <div className="flex items-center gap-1" style={{ color:'var(--muted)', fontSize:10 }}>
                         <Clock size={9} />
                         {formatDistanceToNow(new Date(c.connectedAt), { addSuffix: false, locale: es })}
                       </div>
@@ -208,10 +221,10 @@ export default function Clients() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 p-3 border-t" style={{ borderColor:'#1e3460' }}>
+            <div className="flex items-center justify-center gap-2 p-3 border-t" style={{ borderColor:'var(--border)' }}>
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
                 className="px-3 py-1 rounded text-xs transition-colors disabled:opacity-30 hover:bg-noc-hover"
-                style={{ color:'#4b7ab5', border:'1px solid #1e3460' }}>
+                style={{ color:'var(--muted)', border:'1px solid var(--border)' }}>
                 ← Anterior
               </button>
               {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
@@ -220,14 +233,14 @@ export default function Clients() {
                 return (
                   <button key={p} onClick={() => setPage(p)}
                     className="w-7 h-7 rounded text-xs transition-colors"
-                    style={{ background: page === p ? '#1d4ed8' : 'transparent', color: page === p ? '#fff' : '#4b7ab5' }}>
+                    style={{ background: page === p ? 'var(--accent)' : 'transparent', color: page === p ? '#fff' : 'var(--muted)' }}>
                     {p}
                   </button>
                 );
               })}
               <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
                 className="px-3 py-1 rounded text-xs transition-colors disabled:opacity-30 hover:bg-noc-hover"
-                style={{ color:'#4b7ab5', border:'1px solid #1e3460' }}>
+                style={{ color:'var(--muted)', border:'1px solid var(--border)' }}>
                 Siguiente →
               </button>
             </div>

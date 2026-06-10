@@ -25,7 +25,7 @@ export default function Dashboard() {
   const gridColor = isDark ? 'rgba(255,255,255,0.05)' : '#e2e8f0';
   const textColor = isDark ? '#94a3b8' : '#64748b';
   const tooltipStyle = {
-    backgroundColor: isDark ? 'rgba(15, 23, 42, 0.9)' : '#ffffff',
+    backgroundColor: isDark ? 'rgba(20,20,20,0.95)' : '#ffffff',
     borderColor: isDark ? 'rgba(255,255,255,0.1)' : '#e2e8f0',
     color: isDark ? '#f8fafc' : '#334155',
     borderRadius: '8px',
@@ -83,15 +83,15 @@ export default function Dashboard() {
   };
 
   const SEV_STYLES = {
-    critical: { color: '#ef4444', bg: '#ef444418', border: '#ef444440', label: 'CRÍTICO', pulse: true },
-    warning:  { color: '#f59e0b', bg: '#f59e0b18', border: '#f59e0b40', label: 'ADVERTENCIA', pulse: false },
-    info:     { color: '#3b82f6', bg: '#3b82f618', border: '#3b82f640', label: 'INFORMATIVO', pulse: false },
+    critical: { color: '#ef4444', bg: 'var(--sev-critical-bg)', border: 'var(--sev-critical-border)', label: 'CRÍTICO', pulse: true },
+    warning:  { color: '#f59e0b', bg: 'var(--sev-warning-bg)', border: 'var(--sev-warning-border)', label: 'ADVERTENCIA', pulse: false },
+    info:     { color: '#3b82f6', bg: 'var(--sev-info-bg)', border: 'var(--sev-info-border)', label: 'INFORMATIVO', pulse: false },
   };
 
   if (apsLoad) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="w-10 h-10 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin glow-btn" />
+        <div className="w-10 h-10 border-2 border-orange-500 border-t-transparent rounded-full animate-spin glow-btn" />
       </div>
     );
   }
@@ -114,8 +114,8 @@ export default function Dashboard() {
             onClick={() => setSelectedAlert(null)}
           >
             <div
-              className="relative w-full max-w-lg rounded-2xl overflow-hidden card-enter"
-              style={{ background: '#0d1526', border: `1px solid ${sev.border}`, boxShadow: `0 0 60px ${sev.color}20` }}
+              className="relative w-full max-w-lg rounded-lg overflow-hidden card-enter"
+              style={{ background: 'var(--panel)', border: `1px solid ${sev.border}`, boxShadow: '0 16px 48px rgba(0,0,0,0.35)' }}
               onClick={e => e.stopPropagation()}
             >
               {/* Header */}
@@ -128,10 +128,10 @@ export default function Dashboard() {
                     <span className="text-xs font-bold font-mono px-2 py-0.5 rounded" style={{ background: sev.bg, color: sev.color, border: `1px solid ${sev.border}` }}>
                       {sev.label}
                     </span>
-                    <p className="text-xs mt-1 font-mono" style={{ color: '#4b7ab5' }}>{selectedAlert.category}</p>
+                    <p className="text-xs mt-1 font-mono" style={{ color: 'var(--muted)' }}>{selectedAlert.category}</p>
                   </div>
                 </div>
-                <button onClick={() => setSelectedAlert(null)} className="p-1.5 rounded-lg hover:opacity-70 transition-opacity" style={{ color: '#4b7ab5' }}>
+                <button onClick={() => setSelectedAlert(null)} className="p-1.5 rounded-lg hover:opacity-70 transition-opacity" style={{ color: 'var(--muted)' }}>
                   <X size={16} />
                 </button>
               </div>
@@ -140,22 +140,22 @@ export default function Dashboard() {
               <div className="p-5 space-y-4">
                 {/* Message */}
                 <div>
-                  <p className="text-base font-semibold text-white leading-snug">{selectedAlert.message}</p>
+                  <p className="text-base font-semibold text-[color:var(--text)] leading-snug">{selectedAlert.message}</p>
                   {selectedAlert.detail && (
-                    <p className="text-sm mt-1.5" style={{ color: '#6b8bb5' }}>{selectedAlert.detail}</p>
+                    <p className="text-sm mt-1.5" style={{ color: 'var(--text-2)' }}>{selectedAlert.detail}</p>
                   )}
                 </div>
 
                 {/* Device / Serial */}
-                <div className="rounded-xl p-4 space-y-3" style={{ background: '#07101f', border: '1px solid #1e3460' }}>
+                <div className="rounded-lg p-4 space-y-3" style={{ background: 'var(--panel-2)', border: '1px solid var(--border)' }}>
                   <div className="flex items-center gap-2">
                     <Cpu size={13} style={{ color: sev.color }} />
-                    <span className="text-xs font-bold" style={{ color: '#4b7ab5' }}>DISPOSITIVO AFECTADO</span>
+                    <span className="text-xs font-bold" style={{ color: 'var(--muted)' }}>DISPOSITIVO AFECTADO</span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <p className="text-xs mb-1" style={{ color: '#374d6b' }}>ID / Serial</p>
+                      <p className="text-xs mb-1" style={{ color: 'var(--dim)' }}>ID / Serial</p>
                       <p className="text-sm font-mono font-bold" style={{ color: sev.color }}>
                         {relatedAP?.serial || selectedAlert.device}
                       </p>
@@ -163,29 +163,29 @@ export default function Dashboard() {
                     {relatedAP && (
                       <>
                         <div>
-                          <p className="text-xs mb-1" style={{ color: '#374d6b' }}>Nombre</p>
-                          <p className="text-sm font-mono" style={{ color: '#e2e8f0' }}>{relatedAP.name}</p>
+                          <p className="text-xs mb-1" style={{ color: 'var(--dim)' }}>Nombre</p>
+                          <p className="text-sm font-mono" style={{ color: 'var(--text)' }}>{relatedAP.name}</p>
                         </div>
                         <div>
-                          <p className="text-xs mb-1" style={{ color: '#374d6b' }}>Modelo</p>
-                          <p className="text-sm font-mono" style={{ color: '#6b8bb5' }}>{relatedAP.model}</p>
+                          <p className="text-xs mb-1" style={{ color: 'var(--dim)' }}>Modelo</p>
+                          <p className="text-sm font-mono" style={{ color: 'var(--text-2)' }}>{relatedAP.model}</p>
                         </div>
                         <div>
-                          <p className="text-xs mb-1" style={{ color: '#374d6b' }}>IP</p>
+                          <p className="text-xs mb-1" style={{ color: 'var(--dim)' }}>IP</p>
                           <p className="text-sm font-mono" style={{ color: '#3b82f6' }}>{relatedAP.ip}</p>
                         </div>
                         <div>
-                          <p className="text-xs mb-1" style={{ color: '#374d6b' }}>Estado</p>
+                          <p className="text-xs mb-1" style={{ color: 'var(--dim)' }}>Estado</p>
                           <span className="text-xs font-mono px-2 py-0.5 rounded-full" style={{
-                            background: relatedAP.status === 'online' ? '#10b98120' : '#ef444420',
+                            background: relatedAP.status === 'online' ? 'var(--ok-bg)' : 'var(--sev-critical-bg)',
                             color: relatedAP.status === 'online' ? '#10b981' : '#ef4444',
-                            border: `1px solid ${relatedAP.status === 'online' ? '#10b98140' : '#ef444440'}`,
+                            border: `1px solid ${relatedAP.status === 'online' ? 'var(--ok-border)' : 'var(--sev-critical-border)'}`,
                           }}>
                             {relatedAP.status === 'online' ? '● Online' : '● Offline'}
                           </span>
                         </div>
                         <div>
-                          <p className="text-xs mb-1" style={{ color: '#374d6b' }}>CPU / Temp</p>
+                          <p className="text-xs mb-1" style={{ color: 'var(--dim)' }}>CPU / Temp</p>
                           <p className="text-sm font-mono" style={{ color: relatedAP.temperature >= 65 ? '#ef4444' : '#f59e0b' }}>
                             {relatedAP.cpuUsage}% · {relatedAP.temperature > 0 ? `${relatedAP.temperature}°C` : '—'}
                           </p>
@@ -196,7 +196,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* Meta row */}
-                <div className="flex flex-wrap gap-3 text-xs" style={{ color: '#4b7ab5' }}>
+                <div className="flex flex-wrap gap-3 text-xs" style={{ color: 'var(--muted)' }}>
                   {selectedAlert.building && (
                     <div className="flex items-center gap-1.5">
                       <MapPin size={11} />
@@ -211,20 +211,20 @@ export default function Dashboard() {
                     <Clock size={11} />
                     <span>{formatDistanceToNow(new Date(selectedAlert.timestamp), { addSuffix: true, locale: es })}</span>
                   </div>
-                  <span style={{ color: '#2a3f6e' }}>
+                  <span style={{ color: 'var(--dim)' }}>
                     {format(new Date(selectedAlert.timestamp), 'dd/MM/yyyy HH:mm:ss')}
                   </span>
                 </div>
               </div>
 
               {/* Footer */}
-              <div className="flex items-center justify-between px-5 py-4" style={{ borderTop: '1px solid #1e3460' }}>
+              <div className="flex items-center justify-between px-5 py-4" style={{ borderTop: '1px solid var(--border)' }}>
                 {!selectedAlert.acknowledged ? (
                   <button
                     onClick={() => ackAlert(selectedAlert)}
                     disabled={acking}
                     className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-80 disabled:opacity-50"
-                    style={{ background: '#10b98115', color: '#10b981', border: '1px solid #10b98130' }}
+                    style={{ background: 'var(--ok-bg)', color: '#10b981', border: '1px solid var(--ok-border)' }}
                   >
                     <CheckCheck size={14} />
                     {acking ? 'Reconociendo...' : 'Reconocer alerta'}
@@ -237,7 +237,7 @@ export default function Dashboard() {
                 <button
                   onClick={() => setSelectedAlert(null)}
                   className="flex items-center gap-1.5 text-xs hover:opacity-70 transition-opacity"
-                  style={{ color: '#4b7ab5' }}
+                  style={{ color: 'var(--muted)' }}
                 >
                   <ExternalLink size={12} /> Cerrar
                 </button>
@@ -252,7 +252,7 @@ export default function Dashboard() {
         <div className="metric-box flex flex-col group">
           <div className="flex justify-between items-start mb-2">
             <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Estado de Access Points</span>
-            <Wifi size={16} className="text-[#0ea5e9] group-hover:scale-110 transition-transform" />
+            <Wifi size={16} className="text-slate-400 dark:text-[#777777]" />
           </div>
           <div className="flex gap-4 mt-auto">
             <div>
@@ -269,18 +269,20 @@ export default function Dashboard() {
         <div className="metric-box flex flex-col group">
           <div className="flex justify-between items-start mb-2">
             <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Clientes Concurrentes</span>
-            <Users size={16} className="text-[#a855f7] group-hover:scale-110 transition-transform" />
+            <Users size={16} className="text-slate-400 dark:text-[#777777]" />
           </div>
           <div className="mt-auto flex items-end gap-3">
             <div className="text-4xl font-bold text-slate-800 dark:text-slate-100">{wifiClients}</div>
-            <div className="text-sm font-semibold text-[#10b981] mb-1">↑ 12.4%</div>
+            <div className="text-sm font-semibold text-slate-400 dark:text-[color:var(--muted)] mb-1">
+              ≈ {onlineAPs > 0 ? Math.round(wifiClients / onlineAPs) : 0} por AP
+            </div>
           </div>
         </div>
 
         <div className="metric-box flex flex-col group">
           <div className="flex justify-between items-start mb-2">
             <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Estado de Switches</span>
-            <Network size={16} className="text-[#8b5cf6] group-hover:scale-110 transition-transform" />
+            <Network size={16} className="text-slate-400 dark:text-[#777777]" />
           </div>
           <div className="flex gap-4 mt-auto">
             <div>
@@ -297,7 +299,7 @@ export default function Dashboard() {
         <div className="metric-box flex flex-col group">
           <div className="flex justify-between items-start mb-2">
             <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Centro de Alertas</span>
-            <Bell size={16} className={critAlerts.length > 0 ? "text-[#ef4444] animate-pulse-glow" : "text-slate-400 group-hover:scale-110 transition-transform"} />
+            <Bell size={16} className={critAlerts.length > 0 ? "text-[#ef4444] animate-pulse-glow" : "text-slate-400"} />
           </div>
           <div className="flex gap-4 mt-auto">
             <div>
@@ -319,7 +321,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-4 mb-6">
             <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Tráfico Global (Rx / Tx)</h3>
             <div className="flex gap-4 text-[11px] font-medium">
-              <span className="text-[#0ea5e9] flex items-center gap-1">— Rx (Bajada)</span>
+              <span className="text-[#ff8300] flex items-center gap-1">— Rx (Bajada)</span>
               <span className="text-[#10b981] flex items-center gap-1">— Tx (Subida)</span>
             </div>
           </div>
@@ -330,7 +332,7 @@ export default function Dashboard() {
                 <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fill: textColor, fontSize: 10 }} dy={10} minTickGap={30} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fill: textColor, fontSize: 10 }} />
                 <Tooltip contentStyle={tooltipStyle} />
-                <Line type="monotone" dataKey="rx" stroke="#0ea5e9" strokeWidth={2.5} dot={false} isAnimationActive={true} />
+                <Line type="monotone" dataKey="rx" stroke="#ff8300" strokeWidth={2.5} dot={false} isAnimationActive={true} />
                 <Line type="monotone" dataKey="tx" stroke="#10b981" strokeWidth={2.5} dot={false} isAnimationActive={true} />
               </LineChart>
             </ResponsiveContainer>
@@ -366,7 +368,7 @@ export default function Dashboard() {
         {/* Top APs Table with Interactive Buttons */}
         <div className="noc-card xl:col-span-2 flex flex-col overflow-hidden">
           <div className="p-4 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
-            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Terminal de Control - Top APs</h3>
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Access Points con mayor carga</h3>
           </div>
           <div className="overflow-x-auto p-2">
             <table className="w-full text-left text-xs">
@@ -385,7 +387,7 @@ export default function Dashboard() {
                   const isPending = pendingAction?.startsWith(ap.serial);
                   return (
                     <tr key={ap.serial} className="border-b border-slate-100 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5 transition-all group">
-                      <td className="py-3 pl-3 font-mono font-medium text-[#0ea5e9]">{ap.name}</td>
+                      <td className="py-3 pl-3 font-mono font-medium text-slate-700 dark:text-slate-200">{ap.name}</td>
                       <td className="py-3 truncate max-w-[120px]">{ap.building}</td>
                       <td className="py-3">
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#10b981]/20 text-[#10b981]">
@@ -426,7 +428,7 @@ export default function Dashboard() {
                           <button 
                             onClick={() => handleAction(ap, 'diag')}
                             disabled={isPending || ap.status === 'offline'}
-                            className="glow-btn flex items-center justify-center w-7 h-7 rounded-md bg-slate-100 dark:bg-white/10 hover:bg-cyan-100 dark:hover:bg-cyan-500/20 text-slate-600 dark:text-cyan-400 disabled:opacity-30"
+                            className="glow-btn flex items-center justify-center w-7 h-7 rounded-md bg-slate-100 dark:bg-white/10 hover:bg-orange-100 dark:hover:bg-orange-500/20 text-slate-600 dark:text-orange-400 disabled:opacity-30"
                             title="Ejecutar Diagnóstico"
                           >
                             <Stethoscope size={13} />
@@ -471,7 +473,7 @@ export default function Dashboard() {
               <div
                 key={a.id}
                 onClick={() => setSelectedAlert(a)}
-                className="group flex gap-3 items-start p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-transparent hover:border-slate-200 dark:hover:border-white/10 hover:-translate-y-0.5 transition-all cursor-pointer relative"
+                className="group flex gap-3 items-start p-3 rounded-lg bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-transparent hover:border-slate-200 dark:hover:border-white/10 transition-all cursor-pointer relative"
               >
                 <div className={`p-2 rounded-lg mt-0.5 ${
                   a.severity === 'critical' 
@@ -481,10 +483,10 @@ export default function Dashboard() {
                   <AlertTriangle size={16} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate group-hover:text-cyan-500 transition-colors">{a.message}</p>
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate group-hover:text-orange-500 transition-colors">{a.message}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 truncate font-mono">{a.device}</p>
                 </div>
-                <div className="flex-shrink-0 self-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: '#4b7ab5' }}>
+                <div className="flex-shrink-0 self-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--muted)' }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
                 </div>
               </div>

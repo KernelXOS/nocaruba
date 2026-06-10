@@ -11,7 +11,9 @@ import Servers from './pages/Servers';
 import Clients from './pages/Clients';
 import Alerts from './pages/Alerts';
 import Heatmap from './pages/Heatmap';
+import Reports from './pages/Reports';
 import ToastContainer from './components/ui/ToastContainer';
+import CommandPalette from './components/CommandPalette';
 import { useChangeDetection } from './hooks/useChangeDetection';
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
@@ -25,6 +27,7 @@ function AuthenticatedApp() {
   return (
     <>
       <ToastContainer />
+      <CommandPalette />
       <Layout />
     </>
   );
@@ -57,6 +60,7 @@ export default function App() {
           <Route path="clients" element={<Clients />} />
           <Route path="alerts"  element={<Alerts />} />
           <Route path="heatmap" element={<Heatmap />} />
+          <Route path="reports" element={<Reports />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

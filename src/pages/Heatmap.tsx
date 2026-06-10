@@ -357,28 +357,27 @@ export default function Heatmap() {
       {/* Header y Selector de Campus */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-            <Target className="text-cyan-500" />
-            Radar de Cobertura
+          <h1 className="text-lg font-bold text-slate-800 dark:text-slate-100">
+            Mapa de Cobertura WiFi
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Análisis térmico y estructural de densidad WiFi
+            Densidad de clientes y estado de cobertura por campus
           </p>
         </div>
         
         {/* Selector de Campus (Dropdown) */}
         <div className="flex items-center gap-2 relative group">
           <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-            <MapIcon size={14} className="text-cyan-500" />
+            <MapIcon size={14} className="text-orange-500" />
           </div>
           <select
             value={campus}
             onChange={e => setCampus(e.target.value as Campus)}
-            className="pl-9 pr-8 py-2 rounded-lg text-sm font-bold bg-white dark:bg-[#0d1526] text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-[#1e3460] shadow-sm appearance-none outline-none focus:ring-2 focus:ring-cyan-500/50 cursor-pointer hover:border-cyan-500 transition-colors"
+            className="pl-9 pr-8 py-2 rounded-lg text-sm font-bold bg-white dark:bg-[color:var(--panel)] text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-[color:var(--border)] shadow-sm appearance-none outline-none focus:ring-2 focus:ring-orange-500/50 cursor-pointer hover:border-orange-500 transition-colors"
           >
-            <option value="tachina">📍 Campus Tachina (Edif. ADSIS)</option>
-            <option value="central">📍 Campus Central (Generales)</option>
-            <option value="santacruz">📍 Campus Santa Cruz (Generales)</option>
+            <option value="tachina">Campus Tachina (Edif. ADSIS)</option>
+            <option value="central">Campus Central (Generales)</option>
+            <option value="santacruz">Campus Santa Cruz (Generales)</option>
           </select>
           <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
             <ChevronDown size={14} className="text-slate-400" />
@@ -387,7 +386,7 @@ export default function Heatmap() {
 
         <div className="flex flex-wrap items-center gap-3">
           <button onClick={() => setShowZones(v => !v)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${showZones ? 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30' : 'bg-slate-100 dark:bg-white/5 text-slate-500 border border-transparent'}`}>
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${showZones ? 'bg-orange-500/20 text-orange-600 dark:text-orange-400 border border-orange-500/30' : 'bg-slate-100 dark:bg-white/5 text-slate-500 border border-transparent'}`}>
             <Layers size={14} /> Estructura
           </button>
           <button onClick={() => setShowAPs(v => !v)}
@@ -398,7 +397,7 @@ export default function Heatmap() {
           <button onClick={() => setZoom(z => Math.min(2, z + 0.25))} className="p-1.5 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"><ZoomIn size={14} /></button>
           <button onClick={() => setZoom(z => Math.max(0.5, z - 0.25))} className="p-1.5 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"><ZoomOut size={14} /></button>
           <button onClick={() => { if (aps) renderHeatmap(canvasRef.current!, aps, maxClients, showZones, showAPs, isDark, campus); }}
-            className="p-1.5 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-cyan-500/20 hover:text-cyan-400 transition-colors">
+            className="p-1.5 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-orange-500/20 hover:text-orange-400 transition-colors">
             <RefreshCw size={14} />
           </button>
         </div>
@@ -409,7 +408,7 @@ export default function Heatmap() {
         {[
           { label:'Antenas Activas', value: onlineCount,   color:'text-emerald-500', bg:'bg-emerald-500/10' },
           { label:'Fueras de Línea', value: offlineCount,  color:'text-red-500',     bg:'bg-red-500/10' },
-          { label:'Clientes Totales',value: totalClients,  color:'text-cyan-500',    bg:'bg-cyan-500/10' },
+          { label:'Clientes Totales',value: totalClients,  color:'text-orange-500',    bg:'bg-orange-500/10' },
           { label:'Pico por Antena', value: maxClients,    color:'text-purple-500',  bg:'bg-purple-500/10' },
         ].map(({ label, value, color, bg }) => (
           <div key={label} className="metric-box flex flex-col group hover:-translate-y-1 transition-transform">
@@ -430,8 +429,8 @@ export default function Heatmap() {
           {isLoading ? (
             <div className="flex items-center justify-center h-full min-h-[500px]">
               <div className="text-center">
-                <div className="w-12 h-12 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                <p className="text-sm font-medium text-cyan-600 dark:text-cyan-400 animate-pulse">Analizando radiación electromagnética...</p>
+                <div className="w-12 h-12 border-2 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                <p className="text-sm font-medium text-orange-600 dark:text-orange-400 animate-pulse">Analizando radiación electromagnética...</p>
               </div>
             </div>
           ) : (
@@ -446,7 +445,7 @@ export default function Heatmap() {
           )}
 
           {/* Leyenda Térmica flotante */}
-          <div className="absolute bottom-4 left-4 right-4 md:right-auto md:w-96 noc-card p-3 shadow-lg z-20 bg-white/90 dark:bg-[#0B0E14]/90 backdrop-blur">
+          <div className="absolute bottom-4 left-4 right-4 md:right-auto md:w-96 noc-card p-3 shadow-lg z-20 bg-white/90 dark:bg-[#0a0a0a]/90 backdrop-blur">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Baja Señal</span>
               <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Alta Congestión</span>
@@ -476,9 +475,9 @@ export default function Heatmap() {
               const colorClass = pct > 66 ? 'bg-red-500 text-red-500' : pct > 33 ? 'bg-amber-500 text-amber-500' : 'bg-emerald-500 text-emerald-500';
               
               return (
-                <div key={z.key} className="group rounded-xl p-3 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/20 transition-colors">
+                <div key={z.key} className="group rounded-lg p-3 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/20 transition-colors">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate pr-2 group-hover:text-cyan-500 transition-colors">{z.label}</span>
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate pr-2 group-hover:text-orange-500 transition-colors">{z.label}</span>
                     <span className={`text-sm font-black ${colorClass.split(' ')[1]}`}>{z.totalClients}</span>
                   </div>
                   <div className="text-[10px] text-slate-400 mb-2 truncate">{z.type}</div>
@@ -504,7 +503,7 @@ export default function Heatmap() {
       <div className="noc-card flex flex-col overflow-hidden border-slate-200 dark:border-white/10">
         <div className="p-4 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
           <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-            <Users size={16} className="text-cyan-500" />
+            <Users size={16} className="text-orange-500" />
             Ranking de Antenas por Carga ({campusTitle})
           </h3>
         </div>
@@ -535,7 +534,7 @@ export default function Heatmap() {
                       {String(i + 1).padStart(2, '0')}
                     </td>
                     <td className="px-3 py-3">
-                      <div className="font-bold text-slate-800 dark:text-slate-200 group-hover:text-cyan-500 transition-colors">{ap.name}</div>
+                      <div className="font-bold text-slate-800 dark:text-slate-200 group-hover:text-orange-500 transition-colors">{ap.name}</div>
                       <div className="font-mono text-[10px] text-slate-400">{ap.serial}</div>
                     </td>
                     <td className="px-3 py-3 text-slate-500 dark:text-slate-400">{ap.building || ap.group}</td>
@@ -567,21 +566,21 @@ export default function Heatmap() {
 
       {/* Modal interactivo HUD */}
       {selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 dark:bg-[#0B0E14]/80 backdrop-blur-sm transition-all"
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 dark:bg-[#0a0a0a]/80 backdrop-blur-sm transition-all"
           onClick={() => setSelected(null)}>
-          <div className="noc-card p-0 w-80 shadow-2xl border-cyan-500/30 overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="noc-card p-0 w-80 shadow-2xl border-orange-500/30 overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="p-4 bg-slate-50 dark:bg-white/5 border-b border-slate-100 dark:border-white/10 flex justify-between items-start">
               <div>
-                <div className="text-lg font-black text-slate-800 dark:text-white leading-tight">{selected.name}</div>
-                <div className="text-xs mt-1 font-mono text-cyan-600 dark:text-cyan-400">{selected.serial}</div>
+                <div className="text-lg font-black text-slate-800 dark:text-[color:var(--text)] leading-tight">{selected.name}</div>
+                <div className="text-xs mt-1 font-mono text-orange-600 dark:text-orange-400">{selected.serial}</div>
               </div>
-              <button onClick={() => setSelected(null)} className="p-1 rounded-md text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-slate-700 dark:hover:text-white transition-colors">✕</button>
+              <button onClick={() => setSelected(null)} className="p-1 rounded-md text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-slate-700 dark:hover:text-[color:var(--text)] transition-colors">✕</button>
             </div>
             
             <div className="p-4 space-y-3 text-xs">
               {[
                 ['Estado de Red', selected.status.toUpperCase(), selected.status === 'online' ? 'text-emerald-500' : selected.status === 'warning' ? 'text-amber-500' : 'text-red-500'],
-                ['Usuarios Conectados',  selected.clients, 'text-cyan-500 text-sm font-black'],
+                ['Usuarios Conectados',  selected.clients, 'text-orange-500 text-sm font-black'],
                 ['Dirección IPv4', selected.ip, 'text-purple-500 font-mono'],
                 ['Grupo Lógico', selected.group, 'text-slate-600 dark:text-slate-300'],
                 ['Versión Firmware', selected.firmware, 'text-slate-500 font-mono'],
@@ -607,7 +606,7 @@ export default function Heatmap() {
                   Equipo inalcanzable. Revise suministro PoE en switch.
                 </div>
               )}
-              <button className="w-full py-2.5 rounded-lg bg-cyan-500 hover:bg-cyan-600 text-white font-bold text-xs transition-colors glow-btn shadow-lg shadow-cyan-500/30">
+              <button className="w-full py-2.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs transition-colors glow-btn shadow-lg shadow-orange-500/30">
                 Ejecutar Diagnóstico Completo
               </button>
             </div>

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { Search, RefreshCw, Thermometer, Users, RotateCw, Power, Zap, X, Copy, Check, AlertTriangle, ArrowRightLeft, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, RefreshCw, Thermometer, Users, RotateCw, Power, Zap, X, Copy, Check, AlertTriangle, ArrowRightLeft, ChevronDown, ChevronUp, Download } from 'lucide-react';
+import { exportCsv } from '../utils/exportCsv';
 import StatusDot from '../components/ui/StatusDot';
 import ThermoBar from '../components/ui/ThermoBar';
 import { useAPs } from '../hooks/useData';
@@ -31,7 +32,7 @@ function CopyBtn({ text }: { text: string }) {
   };
   return (
     <button onClick={copy} className="ml-1 opacity-40 hover:opacity-100 transition-opacity">
-      {copied ? <Check size={10} style={{ color: '#10b981' }} /> : <Copy size={10} style={{ color: '#6b8bb5' }} />}
+      {copied ? <Check size={10} style={{ color: '#10b981' }} /> : <Copy size={10} style={{ color: 'var(--text-2)' }} />}
     </button>
   );
 }
@@ -74,7 +75,7 @@ export default function AccessPoints() {
     try {
       if (type === 'reboot') {
         const res = await api.rebootAP(ap.serial);
-        showToast(`✓ Reinicio enviado a ${ap.name}`, true);
+        showToast(`Reinicio enviado a ${ap.name}`, true);
       } else {
         const enabled = type === 'power-on';
         if (!ap.lldpNeighbor || !ap.lldpPort) {
@@ -110,7 +111,7 @@ export default function AccessPoints() {
     try {
       // Try Aruba band-steering / client-disconnect to push clients to target AP
       const res = await api.rebootAP(redirectSrc.serial); // placeholder – will steer via reboot-free API
-      showToast(`✓ Solicitud de redistribución enviada: ${redirectSrc.name} → ${redirectDst.name}`, true);
+      showToast(`Solicitud de redistribución enviada: ${redirectSrc.name} → ${redirectDst.name}`, true);
     } catch {
       showToast('Error al enviar redistribución de clientes', false);
     } finally {
@@ -142,14 +143,14 @@ export default function AccessPoints() {
       {/* Cabecera */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-bold text-white">Puntos de Acceso WiFi</h1>
-          <p className="text-xs mt-0.5" style={{ color: '#4b7ab5' }}>
+          <h1 className="text-lg font-bold text-[color:var(--text)]">Puntos de Acceso WiFi</h1>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
             Aruba Central — PUCESE · {(aps ?? []).length} dispositivos registrados
           </p>
         </div>
         <button onClick={() => refetch()}
           className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors hover:bg-noc-hover"
-          style={{ color: '#4b7ab5', border: '1px solid #1e3460' }}>
+          style={{ color: 'var(--muted)', border: '1px solid var(--border)' }}>
           <RefreshCw size={12} /> Actualizar
         </button>
       </div>
@@ -163,10 +164,10 @@ export default function AccessPoints() {
           return (
             <div key={s} className="noc-card p-3 cursor-pointer transition-all"
               onClick={() => setStatusFilter(statusFilter === s ? 'all' : s)}
-              style={{ borderColor: statusFilter === s ? `${color}60` : undefined }}>
+              style={{ borderColor: statusFilter === s ? color : undefined }}>
               <div className="flex items-center gap-2">
                 <StatusDot status={s} size={8} />
-                <span className="text-xs" style={{ color: '#6b8bb5' }}>{label}</span>
+                <span className="text-xs" style={{ color: 'var(--text-2)' }}>{label}</span>
               </div>
               <div className="text-2xl font-mono font-bold mt-1" style={{ color }}>{count}</div>
             </div>
@@ -174,36 +175,49 @@ export default function AccessPoints() {
         })}
         <div className="noc-card p-3">
           <div className="flex items-center gap-2">
-            <Users size={12} style={{ color: '#06b6d4' }} />
-            <span className="text-xs" style={{ color: '#6b8bb5' }}>Clientes WiFi</span>
+            <Users size={12} style={{ color: 'var(--accent)' }} />
+            <span className="text-xs" style={{ color: 'var(--text-2)' }}>Clientes WiFi</span>
           </div>
-          <div className="text-2xl font-mono font-bold mt-1" style={{ color: '#06b6d4' }}>{totalClients}</div>
+          <div className="text-2xl font-mono font-bold mt-1" style={{ color: 'var(--accent)' }}>{totalClients}</div>
         </div>
       </div>
 
       {/* Filtros */}
       <div className="flex gap-3 items-center flex-wrap">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#4b7ab5' }} />
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
           <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Nombre, serial, MAC, IP, edificio..."
             className="w-full pl-8 pr-3 py-2 rounded-lg text-xs outline-none"
-            style={{ background: '#0d1526', border: '1px solid #1e3460', color: '#e2e8f0' }} />
+            style={{ background: 'var(--panel)', border: '1px solid var(--border)', color: 'var(--text)' }} />
         </div>
         <div className="flex gap-1">
           {STATUS_FILTER.map(f => (
             <button key={f.value} onClick={() => setStatusFilter(f.value as DeviceStatus | 'all')}
               className="px-3 py-1.5 rounded-lg text-xs transition-colors"
               style={{
-                background: statusFilter === f.value ? '#1d4ed8' : '#0d1526',
-                color:      statusFilter === f.value ? '#fff'    : '#4b7ab5',
-                border:     `1px solid ${statusFilter === f.value ? '#3b82f6' : '#1e3460'}`,
+                background: statusFilter === f.value ? 'var(--accent)' : 'var(--panel)',
+                color:      statusFilter === f.value ? '#fff'    : 'var(--muted)',
+                border:     `1px solid ${statusFilter === f.value ? 'var(--accent)' : 'var(--border)'}`,
               }}>
               {f.label}
             </button>
           ))}
         </div>
-        <span className="text-xs font-mono ml-auto" style={{ color: '#374d6b' }}>
+        <button
+          onClick={() => exportCsv('access_points', filtered as unknown as Record<string, unknown>[], [
+            { key: 'name', label: 'Nombre' }, { key: 'serial', label: 'Serial' }, { key: 'model', label: 'Modelo' },
+            { key: 'building', label: 'Edificio' }, { key: 'floor', label: 'Piso' }, { key: 'status', label: 'Estado' },
+            { key: 'ip', label: 'IP' }, { key: 'macAddress', label: 'MAC' }, { key: 'clients', label: 'Clientes' },
+            { key: 'temperature', label: 'Temp °C' }, { key: 'cpuUsage', label: 'CPU %' }, { key: 'firmware', label: 'Firmware' },
+          ])}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors hover:border-orange-500"
+          style={{ background: 'var(--panel)', color: 'var(--accent)', border: '1px solid var(--border)' }}
+          title="Exportar la vista filtrada a CSV"
+        >
+          <Download size={12} /> CSV
+        </button>
+        <span className="text-xs font-mono ml-auto" style={{ color: 'var(--dim)' }}>
           {filtered.length} / {(aps ?? []).length} APs
         </span>
       </div>
@@ -212,24 +226,24 @@ export default function AccessPoints() {
       {isLoading ? (
         <div className="noc-card p-10 text-center">
           <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-xs" style={{ color: '#4b7ab5' }}>Cargando APs desde Aruba Central...</p>
+          <p className="text-xs" style={{ color: 'var(--muted)' }}>Cargando APs desde Aruba Central...</p>
         </div>
       ) : (
         <div className="noc-card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full" style={{ fontSize: 11 }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid #1e3460', background: '#0d1526' }}>
+                <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--panel)' }}>
                   {['Estado','Nombre','Serial','MAC / IP','Modelo','Edificio','Clientes','Temp','CPU','RAM','Uptime','Firmware','Switch PoE','Acciones']
-                    .map(h => <th key={h} className="px-3 py-2.5 text-left font-medium whitespace-nowrap" style={{ color: '#4b7ab5' }}>{h}</th>)}
+                    .map(h => <th key={h} className="px-3 py-2.5 text-left font-medium whitespace-nowrap" style={{ color: 'var(--muted)' }}>{h}</th>)}
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((ap: AccessPoint) => (
                   <tr key={ap.serial}
                     className="cursor-pointer transition-colors"
-                    style={{ borderBottom: '1px solid #1e346022' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = '#182548')}
+                    style={{ borderBottom: '1px solid var(--border-soft)' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     onClick={() => setSelected(ap)}>
 
@@ -238,37 +252,37 @@ export default function AccessPoints() {
                     </td>
 
                     <td className="px-3 py-2 max-w-[160px]">
-                      <div className="font-medium text-white truncate" title={ap.name}>{ap.name}</div>
-                      <div style={{ color: '#374d6b', fontSize: 10 }}>{ap.group}</div>
+                      <div className="font-medium text-[color:var(--text)] truncate" title={ap.name}>{ap.name}</div>
+                      <div style={{ color: 'var(--dim)', fontSize: 10 }}>{ap.group}</div>
                     </td>
 
                     <td className="px-3 py-2">
-                      <div className="flex items-center font-mono" style={{ color: '#6b8bb5' }}>
+                      <div className="flex items-center font-mono" style={{ color: 'var(--text-2)' }}>
                         <span style={{ fontSize: 10 }}>{ap.serial}</span>
                         <CopyBtn text={ap.serial} />
                       </div>
                     </td>
 
                     <td className="px-3 py-2">
-                      <div className="flex items-center font-mono" style={{ color: '#8b9fc0', fontSize: 10 }}>
+                      <div className="flex items-center font-mono" style={{ color: 'var(--text-2)', fontSize: 10 }}>
                         {ap.macAddress}<CopyBtn text={ap.macAddress} />
                       </div>
                       <div className="font-mono mt-0.5" style={{ color: '#3b82f6', fontSize: 10 }}>{ap.ip}</div>
                     </td>
 
-                    <td className="px-3 py-2 font-mono whitespace-nowrap" style={{ color: '#6b8bb5' }}>
+                    <td className="px-3 py-2 font-mono whitespace-nowrap" style={{ color: 'var(--text-2)' }}>
                       {ap.model}
                     </td>
 
                     <td className="px-3 py-2 max-w-[130px]">
-                      <div className="truncate" style={{ color: '#e2e8f0' }} title={ap.building}>{ap.building}</div>
-                      <div style={{ color: '#4b7ab5', fontSize: 10 }}>{ap.floor}</div>
+                      <div className="truncate" style={{ color: 'var(--text)' }} title={ap.building}>{ap.building}</div>
+                      <div style={{ color: 'var(--muted)', fontSize: 10 }}>{ap.floor}</div>
                     </td>
 
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-1">
-                        <Users size={9} style={{ color: '#06b6d4' }} />
-                        <span className="font-mono font-bold" style={{ color: '#06b6d4' }}>{ap.clients}</span>
+                        <Users size={9} style={{ color: 'var(--accent)' }} />
+                        <span className="font-mono font-bold" style={{ color: 'var(--accent)' }}>{ap.clients}</span>
                       </div>
                     </td>
 
@@ -278,22 +292,22 @@ export default function AccessPoints() {
                             <Thermometer size={9} style={{ color: tempColor(ap.temperature) }} />
                             <span className="font-mono" style={{ color: tempColor(ap.temperature) }}>{ap.temperature}°C</span>
                           </div>
-                        : <span style={{ color: '#374d6b' }}>—</span>}
+                        : <span style={{ color: 'var(--dim)' }}>—</span>}
                     </td>
 
                     <td className="px-3 py-2">
                       {ap.status !== 'offline'
                         ? <div className="w-14"><ThermoBar value={ap.cpuUsage} warnAt={70} critAt={85} /></div>
-                        : <span style={{ color: '#374d6b' }}>—</span>}
+                        : <span style={{ color: 'var(--dim)' }}>—</span>}
                     </td>
 
                     <td className="px-3 py-2">
                       {ap.status !== 'offline'
                         ? <div className="w-14"><ThermoBar value={ap.memUsage} warnAt={80} critAt={90} /></div>
-                        : <span style={{ color: '#374d6b' }}>—</span>}
+                        : <span style={{ color: 'var(--dim)' }}>—</span>}
                     </td>
 
-                    <td className="px-3 py-2 font-mono whitespace-nowrap" style={{ color: '#4b7ab5' }}>
+                    <td className="px-3 py-2 font-mono whitespace-nowrap" style={{ color: 'var(--muted)' }}>
                       {fmtUptime(ap.uptime)}
                     </td>
 
@@ -308,9 +322,9 @@ export default function AccessPoints() {
                         <div>
                           <div className="font-mono truncate max-w-[90px]" title={ap.lldpNeighbor}
                             style={{ color: '#8b5cf6' }}>{ap.lldpNeighbor}</div>
-                          <div className="font-mono" style={{ color: '#6b8bb5' }}>{ap.lldpPort}</div>
+                          <div className="font-mono" style={{ color: 'var(--text-2)' }}>{ap.lldpPort}</div>
                         </div>
-                      ) : <span style={{ color: '#374d6b' }}>—</span>}
+                      ) : <span style={{ color: 'var(--dim)' }}>—</span>}
                     </td>
 
                     {/* Acciones */}
@@ -321,7 +335,7 @@ export default function AccessPoints() {
                           disabled={!!pending || ap.status === 'offline'}
                           title="Reiniciar AP (software)"
                           className="flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors disabled:opacity-30"
-                          style={{ background: '#1d4ed820', color: '#3b82f6', border: '1px solid #1d4ed840' }}>
+                          style={{ background: 'var(--accent)20', color: '#3b82f6', border: '1px solid var(--accent)40' }}>
                           <RotateCw size={10} /><span>Reboot</span>
                         </button>
                         <button
@@ -329,7 +343,7 @@ export default function AccessPoints() {
                           disabled={!!pending || ap.status === 'offline'}
                           title="Apagar AP — deshabilita puerto PoE en el switch"
                           className="flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors disabled:opacity-30"
-                          style={{ background: '#ef444415', color: '#ef4444', border: '1px solid #ef444430' }}>
+                          style={{ background: 'var(--sev-critical-bg)', color: '#ef4444', border: '1px solid var(--sev-critical-border)' }}>
                           <Power size={10} /><span>Apagar</span>
                         </button>
                         <button
@@ -337,7 +351,7 @@ export default function AccessPoints() {
                           disabled={!!pending || ap.status === 'online'}
                           title="Encender AP — habilita puerto PoE en el switch"
                           className="flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors disabled:opacity-30"
-                          style={{ background: '#10b98115', color: '#10b981', border: '1px solid #10b98130' }}>
+                          style={{ background: 'var(--ok-bg)', color: '#10b981', border: '1px solid var(--ok-border)' }}>
                           <Zap size={10} /><span>Encender</span>
                         </button>
                         <button
@@ -345,7 +359,7 @@ export default function AccessPoints() {
                           disabled={!!pending || ap.status === 'offline' || ap.clients === 0}
                           title="Redirigir clientes a otro AP"
                           className="flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors disabled:opacity-30"
-                          style={{ background: '#f59e0b15', color: '#f59e0b', border: '1px solid #f59e0b30' }}>
+                          style={{ background: 'var(--sev-warning-bg)', color: '#f59e0b', border: '1px solid var(--sev-warning-border)' }}>
                           <ArrowRightLeft size={10} /><span>Redirigir</span>
                         </button>
                       </div>
@@ -356,7 +370,7 @@ export default function AccessPoints() {
             </table>
 
             {filtered.length === 0 && !isLoading && (
-              <div className="text-center py-10 text-sm" style={{ color: '#374d6b' }}>
+              <div className="text-center py-10 text-sm" style={{ color: 'var(--dim)' }}>
                 No hay APs que coincidan con los filtros aplicados
               </div>
             )}
@@ -377,7 +391,7 @@ export default function AccessPoints() {
                 : action.type === 'power-off'
                   ? <Power size={20} style={{ color: '#ef4444' }} />
                   : <Zap size={20} style={{ color: '#10b981' }} />}
-              <h3 className="font-bold text-white text-base">
+              <h3 className="font-bold text-[color:var(--text)] text-base">
                 {action.type === 'reboot'     ? 'Reiniciar AP'
                 : action.type === 'power-off' ? 'Apagar AP vía PoE'
                 :                               'Encender AP vía PoE'}
@@ -385,48 +399,48 @@ export default function AccessPoints() {
             </div>
 
             {/* Info del AP */}
-            <div className="rounded-lg p-3 mb-4 space-y-2" style={{ background: '#0d1526', border: '1px solid #1e3460' }}>
+            <div className="rounded-lg p-3 mb-4 space-y-2" style={{ background: 'var(--panel)', border: '1px solid var(--border)' }}>
               <div>
-                <span className="text-xs" style={{ color: '#4b7ab5' }}>Nombre</span>
-                <div className="text-sm font-medium text-white">{action.ap.name}</div>
+                <span className="text-xs" style={{ color: 'var(--muted)' }}>Nombre</span>
+                <div className="text-sm font-medium text-[color:var(--text)]">{action.ap.name}</div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <span className="text-xs" style={{ color: '#4b7ab5' }}>Serial</span>
-                  <div className="text-xs font-mono flex items-center gap-1" style={{ color: '#8b9fc0' }}>
+                  <span className="text-xs" style={{ color: 'var(--muted)' }}>Serial</span>
+                  <div className="text-xs font-mono flex items-center gap-1" style={{ color: 'var(--text-2)' }}>
                     {action.ap.serial}<CopyBtn text={action.ap.serial} />
                   </div>
                 </div>
                 <div>
-                  <span className="text-xs" style={{ color: '#4b7ab5' }}>MAC</span>
-                  <div className="text-xs font-mono flex items-center gap-1" style={{ color: '#8b9fc0' }}>
+                  <span className="text-xs" style={{ color: 'var(--muted)' }}>MAC</span>
+                  <div className="text-xs font-mono flex items-center gap-1" style={{ color: 'var(--text-2)' }}>
                     {action.ap.macAddress}<CopyBtn text={action.ap.macAddress} />
                   </div>
                 </div>
               </div>
               <div>
-                <span className="text-xs" style={{ color: '#4b7ab5' }}>Ubicación</span>
-                <div className="text-xs" style={{ color: '#e2e8f0' }}>{action.ap.building} — {action.ap.floor}</div>
+                <span className="text-xs" style={{ color: 'var(--muted)' }}>Ubicación</span>
+                <div className="text-xs" style={{ color: 'var(--text)' }}>{action.ap.building} — {action.ap.floor}</div>
               </div>
             </div>
 
             {/* Info del switch PoE (para power-off / power-on) */}
             {(action.type === 'power-off' || action.type === 'power-on') && (
-              <div className="rounded-lg p-3 mb-4" style={{ background: '#8b5cf610', border: '1px solid #8b5cf640' }}>
+              <div className="rounded-lg p-3 mb-4" style={{ background: 'var(--purple-bg)', border: '1px solid var(--purple-border)' }}>
                 <div className="text-xs font-semibold mb-2" style={{ color: '#8b5cf6' }}>
                   Puerto PoE del switch
                 </div>
                 {action.ap.lldpNeighbor ? (
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <span className="text-xs" style={{ color: '#6b8bb5' }}>Switch</span>
-                      <div className="text-xs font-mono font-semibold" style={{ color: '#e2e8f0' }}>
+                      <span className="text-xs" style={{ color: 'var(--text-2)' }}>Switch</span>
+                      <div className="text-xs font-mono font-semibold" style={{ color: 'var(--text)' }}>
                         {action.ap.lldpNeighbor}
                       </div>
                     </div>
                     <div>
-                      <span className="text-xs" style={{ color: '#6b8bb5' }}>Puerto</span>
-                      <div className="text-xs font-mono font-semibold" style={{ color: '#e2e8f0' }}>
+                      <span className="text-xs" style={{ color: 'var(--text-2)' }}>Puerto</span>
+                      <div className="text-xs font-mono font-semibold" style={{ color: 'var(--text)' }}>
                         {action.ap.lldpPort}
                       </div>
                     </div>
@@ -443,13 +457,13 @@ export default function AccessPoints() {
             {/* Advertencia contextual */}
             {action.type === 'power-off' && (
               <div className="mb-4 p-3 rounded-lg text-xs leading-relaxed"
-                style={{ background: '#ef444410', border: '1px solid #ef444430', color: '#ef4444' }}>
+                style={{ background: 'var(--sev-critical-bg)', border: '1px solid var(--sev-critical-border)', color: '#ef4444' }}>
                 Esta acción deshabilitará el puerto PoE del switch, cortando la energía eléctrica del AP físicamente. Los clientes conectados serán desconectados inmediatamente.
               </div>
             )}
             {action.type === 'power-on' && (
               <div className="mb-4 p-3 rounded-lg text-xs leading-relaxed"
-                style={{ background: '#10b98110', border: '1px solid #10b98130', color: '#10b981' }}>
+                style={{ background: 'var(--ok-bg)', border: '1px solid var(--ok-border)', color: '#10b981' }}>
                 Esta acción habilitará el puerto PoE del switch. El AP recibirá energía y estará operativo en aproximadamente 2 minutos.
               </div>
             )}
@@ -458,7 +472,7 @@ export default function AccessPoints() {
               <button onClick={confirmAction}
                 className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors"
                 style={{
-                  background: action.type === 'reboot'     ? '#1d4ed8'
+                  background: action.type === 'reboot'     ? 'var(--accent)'
                             : action.type === 'power-off'  ? '#ef4444'
                             :                                '#10b981',
                   color: '#fff',
@@ -469,7 +483,7 @@ export default function AccessPoints() {
               </button>
               <button onClick={() => setAction(null)}
                 className="flex-1 py-2.5 rounded-lg text-sm transition-colors hover:bg-noc-hover"
-                style={{ color: '#4b7ab5', border: '1px solid #1e3460' }}>
+                style={{ color: 'var(--muted)', border: '1px solid var(--border)' }}>
                 Cancelar
               </button>
             </div>
@@ -485,55 +499,55 @@ export default function AccessPoints() {
           <div className="noc-card p-0 w-full max-w-lg overflow-hidden" onClick={e => e.stopPropagation()}>
 
             {/* Header */}
-            <div className="flex items-center gap-3 p-4" style={{ borderBottom: '1px solid #1e3460', background: '#f59e0b10' }}>
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#f59e0b20', border: '1px solid #f59e0b40' }}>
+            <div className="flex items-center gap-3 p-4" style={{ borderBottom: '1px solid var(--border)', background: 'var(--sev-warning-bg)' }}>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'var(--sev-warning-bg)', border: '1px solid var(--sev-warning-border)' }}>
                 <ArrowRightLeft size={16} style={{ color: '#f59e0b' }} />
               </div>
               <div>
-                <h3 className="font-bold text-white text-sm">Redirigir Clientes WiFi</h3>
-                <p className="text-xs mt-0.5" style={{ color: '#4b7ab5' }}>Mueve los usuarios de este AP a uno con menor carga</p>
+                <h3 className="font-bold text-[color:var(--text)] text-sm">Redirigir Clientes WiFi</h3>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>Mueve los usuarios de este AP a uno con menor carga</p>
               </div>
-              <button onClick={() => { setRedirectSrc(null); setRedirectDst(null); }} className="ml-auto text-slate-500 hover:text-white">✕</button>
+              <button onClick={() => { setRedirectSrc(null); setRedirectDst(null); }} className="ml-auto text-slate-500 hover:text-[color:var(--text)]">✕</button>
             </div>
 
             <div className="p-4 space-y-4">
 
               {/* AP Origen */}
-              <div className="rounded-lg p-3" style={{ background: '#0d1526', border: '1px solid #f59e0b30' }}>
+              <div className="rounded-lg p-3" style={{ background: 'var(--panel)', border: '1px solid var(--sev-warning-border)' }}>
                 <div className="text-xs font-semibold mb-2" style={{ color: '#f59e0b' }}>AP ORIGEN (sobrecargado)</div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-sm font-bold text-white">{redirectSrc.name}</div>
-                    <div className="text-xs font-mono mt-0.5" style={{ color: '#6b8bb5' }}>{redirectSrc.building} — {redirectSrc.ip}</div>
+                    <div className="text-sm font-bold text-[color:var(--text)]">{redirectSrc.name}</div>
+                    <div className="text-xs font-mono mt-0.5" style={{ color: 'var(--text-2)' }}>{redirectSrc.building} — {redirectSrc.ip}</div>
                   </div>
                   <div className="text-right">
                     <div className="text-2xl font-black" style={{ color: redirectSrc.clients > 20 ? '#ef4444' : '#f59e0b' }}>{redirectSrc.clients}</div>
-                    <div className="text-xs" style={{ color: '#4b7ab5' }}>clientes</div>
+                    <div className="text-xs" style={{ color: 'var(--muted)' }}>clientes</div>
                   </div>
                 </div>
               </div>
 
               {/* Flecha */}
               <div className="flex items-center justify-center gap-2">
-                <div className="flex-1 h-px" style={{ background: '#1e3460' }} />
-                <div className="flex items-center gap-1 text-xs px-3 py-1 rounded-full" style={{ color: '#f59e0b', background: '#f59e0b15', border: '1px solid #f59e0b30' }}>
+                <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
+                <div className="flex items-center gap-1 text-xs px-3 py-1 rounded-full" style={{ color: '#f59e0b', background: 'var(--sev-warning-bg)', border: '1px solid var(--sev-warning-border)' }}>
                   <ArrowRightLeft size={11} /> redirigir hacia
                 </div>
-                <div className="flex-1 h-px" style={{ background: '#1e3460' }} />
+                <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
               </div>
 
               {/* Búsqueda de destino */}
               <div>
                 <div className="text-xs font-semibold mb-2" style={{ color: '#10b981' }}>SELECCIONAR AP DESTINO</div>
                 <div className="relative mb-2">
-                  <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#4b7ab5' }} />
+                  <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
                   <input
                     value={redirectSearch}
                     onChange={e => setRedirectSearch(e.target.value)}
                     placeholder="Buscar por nombre o edificio..."
                     autoFocus
                     className="w-full pl-8 pr-3 py-2 rounded-lg text-xs outline-none"
-                    style={{ background: '#0d1526', border: '1px solid #1e3460', color: '#e2e8f0' }}
+                    style={{ background: 'var(--panel)', border: '1px solid var(--border)', color: 'var(--text)' }}
                   />
                 </div>
 
@@ -549,34 +563,34 @@ export default function AccessPoints() {
                         onClick={() => setRedirectDst(candidate)}
                         className="w-full text-left rounded-lg p-2.5 transition-all"
                         style={{
-                          background: isSelected ? '#10b98115' : '#0d1526',
-                          border: `1px solid ${isSelected ? '#10b98150' : '#1e3460'}`,
+                          background: isSelected ? 'var(--ok-bg)' : 'var(--panel)',
+                          border: `1px solid ${isSelected ? 'var(--ok-border)' : 'var(--border)'}`,
                         }}>
                         <div className="flex items-center justify-between">
                           <div className="flex-1 min-w-0">
                             <div className="text-xs font-semibold truncate" style={{ color: isSelected ? '#10b981' : '#e2e8f0' }}>{candidate.name}</div>
-                            <div className="text-[10px] truncate mt-0.5" style={{ color: '#4b7ab5' }}>{candidate.building}</div>
+                            <div className="text-[10px] truncate mt-0.5" style={{ color: 'var(--muted)' }}>{candidate.building}</div>
                           </div>
                           <div className="text-right ml-3 flex-shrink-0">
                             <div className="text-base font-black" style={{ color: loadColor }}>{candidate.clients}</div>
-                            <div className="text-[10px]" style={{ color: '#374d6b' }}>clientes</div>
+                            <div className="text-[10px]" style={{ color: 'var(--dim)' }}>clientes</div>
                           </div>
                         </div>
                         {/* Mini barra de carga comparativa */}
-                        <div className="mt-1.5 h-1 rounded-full" style={{ background: '#1e3460' }}>
+                        <div className="mt-1.5 h-1 rounded-full" style={{ background: 'var(--border)' }}>
                           <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, loadPct)}%`, background: loadColor }} />
                         </div>
                       </button>
                     );
                   })}
                   {redirectCandidates.length === 0 && (
-                    <div className="text-center py-4 text-xs" style={{ color: '#374d6b' }}>No hay APs online disponibles para destino</div>
+                    <div className="text-center py-4 text-xs" style={{ color: 'var(--dim)' }}>No hay APs online disponibles para destino</div>
                   )}
                 </div>
               </div>
 
               {/* Advertencia informativa */}
-              <div className="p-3 rounded-lg text-xs leading-relaxed" style={{ background: '#3b82f610', border: '1px solid #3b82f630', color: '#93c5fd' }}>
+              <div className="p-3 rounded-lg text-xs leading-relaxed" style={{ background: 'var(--sev-info-bg)', border: '1px solid var(--sev-info-border)', color: '#93c5fd' }}>
                 <strong>¿Cómo funciona?</strong> Se enviará una señal de desasociación a los clientes del AP origen para que reconecten. El AP destino debe tener mejor señal disponible. Los clientes elegirán automáticamente según su firmware.
               </div>
 
@@ -586,13 +600,13 @@ export default function AccessPoints() {
                   onClick={confirmRedirect}
                   disabled={!redirectDst || redirecting}
                   className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40"
-                  style={{ background: redirectDst ? '#f59e0b' : '#f59e0b40', color: '#000' }}>
+                  style={{ background: redirectDst ? '#f59e0b' : 'var(--sev-warning-border)', color: '#000' }}>
                   {redirecting ? 'Enviando...' : `Redirigir → ${redirectDst?.name ?? 'seleccionar destino'}`}
                 </button>
                 <button
                   onClick={() => { setRedirectSrc(null); setRedirectDst(null); }}
                   className="px-4 py-2.5 rounded-lg text-sm transition-colors hover:bg-noc-hover"
-                  style={{ color: '#4b7ab5', border: '1px solid #1e3460' }}>
+                  style={{ color: 'var(--muted)', border: '1px solid var(--border)' }}>
                   Cancelar
                 </button>
               </div>
@@ -609,15 +623,15 @@ export default function AccessPoints() {
           <div className="noc-card p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-4">
               <AlertTriangle size={20} style={{ color: '#f59e0b' }} />
-              <h3 className="font-bold text-white text-sm">{resultModal.title}</h3>
+              <h3 className="font-bold text-[color:var(--text)] text-sm">{resultModal.title}</h3>
             </div>
             <pre className="text-xs leading-relaxed p-3 rounded-lg whitespace-pre-wrap mb-4"
-              style={{ background: '#0d1526', border: '1px solid #1e3460', color: '#e2e8f0', fontFamily: 'monospace' }}>
+              style={{ background: 'var(--panel)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'monospace' }}>
               {resultModal.msg}
             </pre>
             <button onClick={() => setResultModal(null)}
               className="w-full py-2 rounded-lg text-sm font-medium"
-              style={{ background: '#1d4ed8', color: '#fff' }}>
+              style={{ background: 'var(--accent)', color: '#fff' }}>
               Entendido
             </button>
           </div>
@@ -635,32 +649,32 @@ export default function AccessPoints() {
                 <div className="flex items-center gap-2 mb-1">
                   <StatusDot status={selected.status} size={9} label />
                 </div>
-                <h2 className="text-base font-bold text-white">{selected.name}</h2>
-                <p className="text-xs mt-0.5" style={{ color: '#4b7ab5' }}>{selected.model}</p>
+                <h2 className="text-base font-bold text-[color:var(--text)]">{selected.name}</h2>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>{selected.model}</p>
               </div>
-              <button onClick={() => setSelected(null)} className="text-slate-500 hover:text-white text-lg">✕</button>
+              <button onClick={() => setSelected(null)} className="text-slate-500 hover:text-[color:var(--text)] text-lg">✕</button>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 mb-4 p-3 rounded-lg" style={{ background: '#0d1526', border: '1px solid #1e3460' }}>
+            <div className="grid grid-cols-2 gap-2 mb-4 p-3 rounded-lg" style={{ background: 'var(--panel)', border: '1px solid var(--border)' }}>
               <div>
-                <div className="text-xs mb-1" style={{ color: '#4b7ab5' }}>Serial</div>
-                <div className="flex items-center gap-1 text-xs font-mono" style={{ color: '#e2e8f0' }}>
+                <div className="text-xs mb-1" style={{ color: 'var(--muted)' }}>Serial</div>
+                <div className="flex items-center gap-1 text-xs font-mono" style={{ color: 'var(--text)' }}>
                   {selected.serial}<CopyBtn text={selected.serial} />
                 </div>
               </div>
               <div>
-                <div className="text-xs mb-1" style={{ color: '#4b7ab5' }}>Dirección MAC</div>
-                <div className="flex items-center gap-1 text-xs font-mono" style={{ color: '#e2e8f0' }}>
+                <div className="text-xs mb-1" style={{ color: 'var(--muted)' }}>Dirección MAC</div>
+                <div className="flex items-center gap-1 text-xs font-mono" style={{ color: 'var(--text)' }}>
                   {selected.macAddress}<CopyBtn text={selected.macAddress} />
                 </div>
               </div>
               <div>
-                <div className="text-xs mb-1" style={{ color: '#4b7ab5' }}>IP</div>
+                <div className="text-xs mb-1" style={{ color: 'var(--muted)' }}>IP</div>
                 <div className="text-xs font-mono" style={{ color: '#3b82f6' }}>{selected.ip}</div>
               </div>
               <div>
-                <div className="text-xs mb-1" style={{ color: '#4b7ab5' }}>Clientes activos</div>
-                <div className="text-xs font-mono font-bold" style={{ color: '#06b6d4' }}>{selected.clients}</div>
+                <div className="text-xs mb-1" style={{ color: 'var(--muted)' }}>Clientes activos</div>
+                <div className="text-xs font-mono font-bold" style={{ color: 'var(--accent)' }}>{selected.clients}</div>
               </div>
             </div>
 
@@ -668,19 +682,19 @@ export default function AccessPoints() {
               {([
                 ['Campus',     selected.building,                             '#e2e8f0'],
                 ['Ubicación',  selected.floor,                                '#e2e8f0'],
-                ['Grupo',      selected.group,                                '#6b8bb5'],
+                ['Grupo',      selected.group,                                'var(--text-2)'],
                 ['Uptime',     fmtUptime(selected.uptime),                    '#10b981'],
                 ['Firmware',   selected.firmware,                             selected.firmware?.startsWith('8.11') ? '#10b981' : '#f59e0b'],
-                ['Última vez', new Date(selected.lastSeen).toLocaleString('es-EC'), '#4b7ab5'],
-                ['Canal 2.4',  selected.channel24 ? `CH ${selected.channel24}` : '—', '#06b6d4'],
-                ['Canal 5',    selected.channel5  ? `CH ${selected.channel5}`  : '—', '#06b6d4'],
-                ['Potencia 2.4', selected.txPower24 ? `${selected.txPower24} dBm` : '—', '#8b9fc0'],
-                ['Potencia 5',   selected.txPower5  ? `${selected.txPower5} dBm`  : '—', '#8b9fc0'],
-                ['Ruido 2.4',  selected.noise24 ? `${selected.noise24} dBm` : '—', '#4b7ab5'],
-                ['Ruido 5',    selected.noise5  ? `${selected.noise5} dBm`  : '—', '#4b7ab5'],
+                ['Última vez', new Date(selected.lastSeen).toLocaleString('es-EC'), 'var(--muted)'],
+                ['Canal 2.4',  selected.channel24 ? `CH ${selected.channel24}` : '—', 'var(--accent)'],
+                ['Canal 5',    selected.channel5  ? `CH ${selected.channel5}`  : '—', 'var(--accent)'],
+                ['Potencia 2.4', selected.txPower24 ? `${selected.txPower24} dBm` : '—', 'var(--text-2)'],
+                ['Potencia 5',   selected.txPower5  ? `${selected.txPower5} dBm`  : '—', 'var(--text-2)'],
+                ['Ruido 2.4',  selected.noise24 ? `${selected.noise24} dBm` : '—', 'var(--muted)'],
+                ['Ruido 5',    selected.noise5  ? `${selected.noise5} dBm`  : '—', 'var(--muted)'],
               ] as [string, string, string][]).map(([k, v, c]) => (
-                <div key={k} className="rounded p-2" style={{ background: '#0d1526' }}>
-                  <div className="text-xs" style={{ color: '#4b7ab5' }}>{k}</div>
+                <div key={k} className="rounded p-2" style={{ background: 'var(--panel)' }}>
+                  <div className="text-xs" style={{ color: 'var(--muted)' }}>{k}</div>
                   <div className="text-xs font-mono font-semibold mt-0.5" style={{ color: c }}>{v || '—'}</div>
                 </div>
               ))}
@@ -688,17 +702,17 @@ export default function AccessPoints() {
 
             {/* Switch PoE conectado */}
             {selected.lldpNeighbor && (
-              <div className="mb-4 p-3 rounded-lg" style={{ background: '#8b5cf615', border: '1px solid #8b5cf640' }}>
+              <div className="mb-4 p-3 rounded-lg" style={{ background: 'var(--purple-bg)', border: '1px solid var(--purple-border)' }}>
                 <div className="text-xs font-semibold mb-1" style={{ color: '#8b5cf6' }}>Conexión PoE (LLDP)</div>
                 <div className="flex items-center gap-4 text-xs">
                   <div>
-                    <span style={{ color: '#6b8bb5' }}>Switch: </span>
-                    <span className="font-mono font-semibold" style={{ color: '#e2e8f0' }}>{selected.lldpNeighbor}</span>
+                    <span style={{ color: 'var(--text-2)' }}>Switch: </span>
+                    <span className="font-mono font-semibold" style={{ color: 'var(--text)' }}>{selected.lldpNeighbor}</span>
                   </div>
                   {selected.lldpPort && (
                     <div>
-                      <span style={{ color: '#6b8bb5' }}>Puerto: </span>
-                      <span className="font-mono font-semibold" style={{ color: '#e2e8f0' }}>{selected.lldpPort}</span>
+                      <span style={{ color: 'var(--text-2)' }}>Puerto: </span>
+                      <span className="font-mono font-semibold" style={{ color: 'var(--text)' }}>{selected.lldpPort}</span>
                     </div>
                   )}
                 </div>
@@ -712,38 +726,38 @@ export default function AccessPoints() {
             </div>
 
             {/* Acciones desde modal */}
-            <div className="flex gap-2 pt-3 flex-wrap" style={{ borderTop: '1px solid #1e3460' }}>
+            <div className="flex gap-2 pt-3 flex-wrap" style={{ borderTop: '1px solid var(--border)' }}>
               <button
                 onClick={() => { setSelected(null); setAction({ ap: selected, type: 'reboot' }); }}
                 disabled={!!pending || selected.status === 'offline'}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-30"
-                style={{ background: '#1d4ed820', color: '#3b82f6', border: '1px solid #1d4ed840' }}>
+                style={{ background: 'var(--accent)20', color: '#3b82f6', border: '1px solid var(--accent)40' }}>
                 <RotateCw size={13} /> Reiniciar
               </button>
               <button
                 onClick={() => { setSelected(null); setAction({ ap: selected, type: 'power-off' }); }}
                 disabled={!!pending || selected.status === 'offline'}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-30"
-                style={{ background: '#ef444415', color: '#ef4444', border: '1px solid #ef444430' }}>
+                style={{ background: 'var(--sev-critical-bg)', color: '#ef4444', border: '1px solid var(--sev-critical-border)' }}>
                 <Power size={13} /> Apagar PoE
               </button>
               <button
                 onClick={() => { setSelected(null); setAction({ ap: selected, type: 'power-on' }); }}
                 disabled={!!pending || selected.status === 'online'}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-30"
-                style={{ background: '#10b98115', color: '#10b981', border: '1px solid #10b98130' }}>
+                style={{ background: 'var(--ok-bg)', color: '#10b981', border: '1px solid var(--ok-border)' }}>
                 <Zap size={13} /> Encender PoE
               </button>
               <button
                 onClick={() => { setSelected(null); setRedirectSrc(selected); setRedirectDst(null); setRedirectSearch(''); }}
                 disabled={!!pending || selected.status === 'offline' || selected.clients === 0}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-30"
-                style={{ background: '#f59e0b15', color: '#f59e0b', border: '1px solid #f59e0b30' }}>
+                style={{ background: 'var(--sev-warning-bg)', color: '#f59e0b', border: '1px solid var(--sev-warning-border)' }}>
                 <ArrowRightLeft size={13} /> Redirigir Clientes
               </button>
               <button onClick={() => setSelected(null)}
                 className="ml-auto px-4 py-2 rounded-lg text-sm transition-colors hover:bg-noc-hover"
-                style={{ color: '#4b7ab5', border: '1px solid #1e3460' }}>
+                style={{ color: 'var(--muted)', border: '1px solid var(--border)' }}>
                 Cerrar
               </button>
             </div>
@@ -755,8 +769,8 @@ export default function AccessPoints() {
       {toast && (
         <div className="fixed bottom-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-xl max-w-sm"
           style={{
-            background: toast.ok ? '#10b98118' : '#ef444418',
-            border:     `1px solid ${toast.ok ? '#10b98140' : '#ef444440'}`,
+            background: toast.ok ? 'var(--ok-bg)' : 'var(--sev-critical-bg)',
+            border:     `1px solid ${toast.ok ? 'var(--ok-border)' : 'var(--sev-critical-border)'}`,
             color:      toast.ok ? '#10b981'   : '#ef4444',
           }}>
           <span className="text-sm">{toast.msg}</span>

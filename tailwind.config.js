@@ -6,14 +6,14 @@ export default {
     extend: {
       colors: {
         noc: {
-          bg:      '#f0f2f5',
-          surface: '#ffffff',
-          card:    '#ffffff',
-          border:  '#e2e8f0',
-          hover:   '#f8fafc',
-          muted:   '#64748b',
+          bg:      'var(--bg)',
+          surface: 'var(--panel)',
+          card:    'var(--panel)',
+          border:  'var(--border)',
+          hover:   'var(--hover)',
+          muted:   'var(--muted)',
           primary: '#1e3a5f',
-          accent:  '#f59e0b'
+          accent:  'var(--accent)'
         },
       },
       fontFamily: {

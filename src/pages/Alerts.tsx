@@ -3,8 +3,9 @@ import {
   Bell, CheckCheck, AlertTriangle, Info, Filter, X, Wifi, WifiOff,
   Thermometer, Cpu, Server, RefreshCw, Phone, Network,
   ChevronRight, Clock, MapPin, Hash, Monitor, Zap, Activity,
-  AlertOctagon, CheckCircle, LifeBuoy, Radio,
+  AlertOctagon, CheckCircle, LifeBuoy, Radio, Download,
 } from 'lucide-react';
+import { exportCsv } from '../utils/exportCsv';
 import { useAlerts, useAPs, useSwitches } from '../hooks/useData';
 import { api } from '../api/client';
 import type { Alert, AlertSeverity, AccessPoint, NetworkSwitch } from '../types';
@@ -13,10 +14,10 @@ import { es } from 'date-fns/locale';
 import { useQueryClient } from '@tanstack/react-query';
 
 /* ── Colores por severidad ──────────────────────────────────── */
-const SEV: Record<AlertSeverity, { color: string; bg: string; icon: JSX.Element; label: string }> = {
-  critical: { color:'#ef4444', bg:'#ef444415', icon:<AlertTriangle size={14} style={{ color:'#ef4444' }} />, label:'Crítico' },
-  warning:  { color:'#f59e0b', bg:'#f59e0b15', icon:<AlertTriangle size={14} style={{ color:'#f59e0b' }} />, label:'Advertencia' },
-  info:     { color:'#3b82f6', bg:'#3b82f615', icon:<Info size={14} style={{ color:'#3b82f6' }} />,          label:'Info' },
+const SEV: Record<AlertSeverity, { color: string; bg: string; border: string; icon: JSX.Element; label: string }> = {
+  critical: { color:'#ef4444', bg:'var(--sev-critical-bg)', border:'var(--sev-critical-border)', icon:<AlertTriangle size={14} style={{ color:'#ef4444' }} />, label:'Crítico' },
+  warning:  { color:'#f59e0b', bg:'var(--sev-warning-bg)', border:'var(--sev-warning-border)', icon:<AlertTriangle size={14} style={{ color:'#f59e0b' }} />, label:'Advertencia' },
+  info:     { color:'#3b82f6', bg:'var(--sev-info-bg)', border:'var(--sev-info-border)', icon:<Info size={14} style={{ color:'#3b82f6' }} />,          label:'Info' },
 };
 
 /* ── Pasos de diagnóstico y acciones según categoría ────────── */
@@ -59,9 +60,9 @@ function getActionPlan(alert: Alert, ap?: AccessPoint | null, sw?: NetworkSwitch
     return {
       diagnosis: [
         `Temperatura actual: ${temp}°C (umbral crítico: 70°C)`,
-        temp > 80  ? '⚠ Temperatura muy peligrosa — daño permanente posible' :
-        temp > 70  ? '⚠ Temperatura crítica — riesgo de shutdown automático' :
-                    '⚠ Temperatura elevada — monitorizar',
+        temp > 80  ? 'Temperatura muy peligrosa — daño permanente posible' :
+        temp > 70  ? 'Temperatura crítica — riesgo de shutdown automático' :
+                    'Temperatura elevada — monitorizar',
         'Posible causa: ventilación bloqueada, AC deficiente o alta carga de clientes',
       ],
       steps: [
@@ -172,10 +173,10 @@ function AlertModal({
     alert && window.open(`${ARUBA_BASE}/frontend/`, '_blank');
   };
 
-  const PRIORITY_STYLE: Record<string, { color: string; label: string }> = {
-    high:   { color: '#ef4444', label: 'URGENTE' },
-    medium: { color: '#f59e0b', label: 'IMPORTANTE' },
-    low:    { color: '#3b82f6', label: 'OPCIONAL' },
+  const PRIORITY_STYLE: Record<string, { color: string; bg: string; border: string; label: string }> = {
+    high:   { color: '#ef4444', bg: 'var(--sev-critical-bg)', border: 'var(--sev-critical-border)', label: 'URGENTE' },
+    medium: { color: '#f59e0b', bg: 'var(--sev-warning-bg)', border: 'var(--sev-warning-border)', label: 'IMPORTANTE' },
+    low:    { color: '#3b82f6', bg: 'var(--sev-info-bg)', border: 'var(--sev-info-border)', label: 'OPCIONAL' },
   };
 
   return (
@@ -185,19 +186,19 @@ function AlertModal({
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl"
+        className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg"
         style={{
-          background: 'linear-gradient(135deg, #0d1526 0%, #0a1020 100%)',
-          border: `1px solid ${s.color}40`,
-          boxShadow: `0 0 60px ${s.color}20, 0 20px 60px rgba(0,0,0,0.6)`,
+          background: 'var(--panel)',
+          border: `1px solid ${s.border}`,
+          boxShadow: '0 16px 48px rgba(0,0,0,0.35)',
         }}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-start justify-between p-5 pb-4"
-          style={{ borderBottom: `1px solid ${s.color}20` }}>
+          style={{ borderBottom: '1px solid var(--border)' }}>
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl" style={{ background: s.bg }}>
+            <div className="p-2.5 rounded-lg" style={{ background: s.bg }}>
               {alert.severity === 'critical'
                 ? <AlertOctagon size={22} style={{ color: s.color }} />
                 : <AlertTriangle size={22} style={{ color: s.color }} />}
@@ -205,19 +206,19 @@ function AlertModal({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold px-2 py-0.5 rounded-full"
-                  style={{ background: s.bg, color: s.color, border: `1px solid ${s.color}30` }}>
+                  style={{ background: s.bg, color: s.color, border: `1px solid ${s.border}` }}>
                   {s.label}
                 </span>
                 <span className="text-xs px-2 py-0.5 rounded-full"
-                  style={{ background: '#1e346020', color: '#6b8bb5' }}>
+                  style={{ background: 'var(--panel-3)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
                   {alert.category}
                 </span>
               </div>
-              <h2 className="text-base font-bold text-white mt-1">{alert.message}</h2>
+              <h2 className="text-base font-bold text-[color:var(--text)] mt-1">{alert.message}</h2>
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-lg hover:opacity-70 transition-opacity"
-            style={{ color: '#4b7ab5' }}>
+            style={{ color: 'var(--muted)' }}>
             <X size={18} />
           </button>
         </div>
@@ -225,7 +226,7 @@ function AlertModal({
         <div className="p-5 space-y-5">
 
           {/* Timestamps */}
-          <div className="flex items-center gap-4 text-xs" style={{ color: '#4b7ab5' }}>
+          <div className="flex items-center gap-4 text-xs" style={{ color: 'var(--muted)' }}>
             <span className="flex items-center gap-1.5">
               <Clock size={12} />
               {formatDistanceToNow(new Date(alert.timestamp), { addSuffix: true, locale: es })}
@@ -245,10 +246,10 @@ function AlertModal({
 
           {/* Dispositivo — datos reales del AP */}
           {ap && (
-            <div className="rounded-xl p-4 space-y-3"
-              style={{ background: '#0d1a2e', border: '1px solid #1e3460' }}>
+            <div className="rounded-lg p-4 space-y-3"
+              style={{ background: 'var(--panel-2)', border: '1px solid var(--border)' }}>
               <div className="text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-2"
-                style={{ color: '#4b7ab5' }}>
+                style={{ color: 'var(--muted)' }}>
                 <Radio size={12} /> Dispositivo afectado (datos en tiempo real)
               </div>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -264,8 +265,8 @@ function AlertModal({
                   { label: 'Edificio', value: ap.building, icon: <MapPin size={11} /> },
                 ].map(({ label, value, icon }) => (
                   <div key={label} className="p-2.5 rounded-lg"
-                    style={{ background: '#131f38', border: '1px solid #1e3460' }}>
-                    <div className="flex items-center gap-1.5 text-xs mb-1" style={{ color: '#4b7ab5' }}>
+                    style={{ background: 'var(--panel-3)', border: '1px solid var(--border)' }}>
+                    <div className="flex items-center gap-1.5 text-xs mb-1" style={{ color: 'var(--muted)' }}>
                       {icon} {label}
                     </div>
                     <div className="text-sm font-mono font-medium truncate"
@@ -283,16 +284,16 @@ function AlertModal({
               </div>
               {ap.downReason && (
                 <div className="mt-2 p-2.5 rounded-lg text-xs"
-                  style={{ background: '#2a0a0a', border: '1px solid #ef444430', color: '#ef9999' }}>
+                  style={{ background: 'var(--danger-soft)', border: '1px solid var(--sev-critical-border)', color: 'var(--danger-text)' }}>
                   <span className="font-bold">Razón de caída (API):</span> {ap.downReason}
                 </div>
               )}
               {ap.lldpNeighbor && (
                 <div className="p-2.5 rounded-lg text-xs"
-                  style={{ background: '#0a1a2e', border: '1px solid #1e346050', color: '#6b8bb5' }}>
-                  <span style={{ color: '#4b7ab5' }}>Conectado a:</span>{' '}
-                  <span className="font-mono text-white">{ap.lldpNeighbor}</span>
-                  {ap.lldpPort && <> · Puerto <span className="font-mono text-white">{ap.lldpPort}</span></>}
+                  style={{ background: 'var(--panel-2)', border: '1px solid var(--border-soft)', color: 'var(--text-2)' }}>
+                  <span style={{ color: 'var(--muted)' }}>Conectado a:</span>{' '}
+                  <span className="font-mono text-[color:var(--text)]">{ap.lldpNeighbor}</span>
+                  {ap.lldpPort && <> · Puerto <span className="font-mono text-[color:var(--text)]">{ap.lldpPort}</span></>}
                 </div>
               )}
             </div>
@@ -300,10 +301,10 @@ function AlertModal({
 
           {/* Switch data si aplica */}
           {sw && !ap && (
-            <div className="rounded-xl p-4"
-              style={{ background: '#0d1a2e', border: '1px solid #1e3460' }}>
+            <div className="rounded-lg p-4"
+              style={{ background: 'var(--panel-2)', border: '1px solid var(--border)' }}>
               <div className="text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-2"
-                style={{ color: '#4b7ab5' }}>
+                style={{ color: 'var(--muted)' }}>
                 <Server size={12} /> Switch afectado
               </div>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
@@ -312,8 +313,8 @@ function AlertModal({
                   ['Estado', sw.status], ['CPU', `${sw.cpuUsage}%`], ['Temp', `${sw.temperature}°C`],
                 ].map(([l, v]) => (
                   <div key={l}>
-                    <span style={{ color: '#4b7ab5' }}>{l}: </span>
-                    <span className="font-mono text-white">{v}</span>
+                    <span style={{ color: 'var(--muted)' }}>{l}: </span>
+                    <span className="font-mono text-[color:var(--text)]">{v}</span>
                   </div>
                 ))}
               </div>
@@ -321,15 +322,15 @@ function AlertModal({
           )}
 
           {/* Diagnóstico */}
-          <div className="rounded-xl p-4"
-            style={{ background: '#100a06', border: `1px solid ${s.color}25` }}>
+          <div className="rounded-lg p-4"
+            style={{ background: 'var(--panel-2)', border: '1px solid var(--border)' }}>
             <div className="text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-2"
               style={{ color: s.color }}>
               <AlertTriangle size={12} /> Diagnóstico
             </div>
             <ul className="space-y-1.5">
               {plan.diagnosis.map((d, i) => (
-                <li key={i} className="text-sm flex items-start gap-2" style={{ color: '#c8d8ea' }}>
+                <li key={i} className="text-sm flex items-start gap-2" style={{ color: 'var(--text)' }}>
                   <span className="mt-1 flex-shrink-0 w-1.5 h-1.5 rounded-full" style={{ background: s.color }} />
                   {d}
                 </li>
@@ -338,8 +339,8 @@ function AlertModal({
           </div>
 
           {/* Pasos de solución */}
-          <div className="rounded-xl p-4"
-            style={{ background: '#060f1e', border: '1px solid #1e3460' }}>
+          <div className="rounded-lg p-4"
+            style={{ background: 'var(--panel-2)', border: '1px solid var(--border)' }}>
             <div className="text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-2"
               style={{ color: '#10b981' }}>
               <LifeBuoy size={12} /> Plan de acción
@@ -350,14 +351,14 @@ function AlertModal({
                 return (
                   <li key={i} className="flex items-start gap-3">
                     <div className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mt-0.5"
-                      style={{ background: `${ps.color}15`, color: ps.color, border: `1px solid ${ps.color}30` }}>
+                      style={{ background: ps.bg, color: ps.color, border: `1px solid ${ps.border}` }}>
                       {i + 1}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm text-white">{step.text}</span>
+                        <span className="text-sm text-[color:var(--text)]">{step.text}</span>
                         <span className="text-xs px-1.5 py-0.5 rounded font-mono"
-                          style={{ background: `${ps.color}15`, color: ps.color }}>
+                          style={{ background: ps.bg, color: ps.color }}>
                           {ps.label}
                         </span>
                       </div>
@@ -374,11 +375,11 @@ function AlertModal({
               <button key={btn.action}
                 onClick={() => handleButton(btn.action)}
                 disabled={btn.action === 'ack' && (acking === alert.id || alert.acknowledged)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:opacity-80 active:scale-95"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-80 active:scale-95"
                 style={{
-                  background: `${btn.color}15`,
+                  background: 'var(--panel-2)',
                   color:      btn.color,
-                  border:     `1px solid ${btn.color}40`,
+                  border:     '1px solid var(--border)',
                   opacity:    btn.action === 'ack' && alert.acknowledged ? 0.5 : 1,
                 }}>
                 {btn.icon}
@@ -390,13 +391,13 @@ function AlertModal({
           {/* Detail del API */}
           {alert.detail && (
             <div className="text-xs p-3 rounded-lg font-mono"
-              style={{ background: '#060d1a', border: '1px solid #1e3460', color: '#4b7ab5' }}>
-              <span style={{ color: '#374d6b' }}>API detail: </span>{alert.detail}
+              style={{ background: 'var(--panel-2)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
+              <span style={{ color: 'var(--dim)' }}>API detail: </span>{alert.detail}
             </div>
           )}
 
           {/* Device raw */}
-          <div className="text-xs font-mono" style={{ color: '#1e3460' }}>
+          <div className="text-xs font-mono" style={{ color: 'var(--border)' }}>
             ID: {alert.id} · Dispositivo: {alert.device}
           </div>
         </div>
@@ -466,11 +467,11 @@ export default function Alerts() {
   };
 
   const FILTERS = [
-    { key:'unack',    label:'Sin reconocer', count: counts.unack,    color:'#ef4444' },
-    { key:'all',      label:'Todas',          count: counts.all,      color:'#6b8bb5' },
-    { key:'critical', label:'Críticas',       count: counts.critical, color:'#ef4444' },
-    { key:'warning',  label:'Advertencias',   count: counts.warning,  color:'#f59e0b' },
-    { key:'info',     label:'Informativas',   count: counts.info,     color:'#3b82f6' },
+    { key:'unack',    label:'Sin reconocer', count: counts.unack,    color:'#ef4444',        bg:'var(--sev-critical-bg)', border:'var(--sev-critical-border)' },
+    { key:'all',      label:'Todas',          count: counts.all,      color:'var(--text-2)',  bg:'var(--panel-3)',         border:'var(--border)' },
+    { key:'critical', label:'Críticas',       count: counts.critical, color:'#ef4444',        bg:'var(--sev-critical-bg)', border:'var(--sev-critical-border)' },
+    { key:'warning',  label:'Advertencias',   count: counts.warning,  color:'#f59e0b',        bg:'var(--sev-warning-bg)',  border:'var(--sev-warning-border)' },
+    { key:'info',     label:'Informativas',   count: counts.info,     color:'#3b82f6',        bg:'var(--sev-info-bg)',     border:'var(--sev-info-border)' },
   ] as const;
 
   return (
@@ -491,18 +492,33 @@ export default function Alerts() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-bold text-white">Centro de Alertas</h1>
-          <p className="text-xs mt-0.5" style={{ color:'#4b7ab5' }}>
+          <h1 className="text-lg font-bold text-[color:var(--text)]">Centro de Alertas</h1>
+          <p className="text-xs mt-0.5" style={{ color:'var(--muted)' }}>
             Eventos y notificaciones de red — PUCESE
           </p>
         </div>
-        {counts.unack > 0 && (
-          <button onClick={ackAll}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors hover:opacity-80"
-            style={{ background:'#10b98115', color:'#10b981', border:'1px solid #10b98130' }}>
-            <CheckCheck size={13} /> Reconocer todas ({counts.unack})
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => exportCsv('alertas', filtered as unknown as Record<string, unknown>[], [
+              { key:'severity', label:'Severidad' }, { key:'category', label:'Categoría' },
+              { key:'device', label:'Dispositivo' }, { key:'message', label:'Mensaje' },
+              { key:'detail', label:'Detalle' }, { key:'building', label:'Edificio' },
+              { key:'timestamp', label:'Fecha' }, { key:'acknowledged', label:'Reconocida' },
+            ])}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors hover:opacity-80"
+            style={{ background:'var(--panel)', color:'var(--accent)', border:'1px solid var(--border)' }}
+            title="Exportar la vista filtrada a CSV"
+          >
+            <Download size={12} /> CSV
           </button>
-        )}
+          {counts.unack > 0 && (
+            <button onClick={ackAll}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors hover:opacity-80"
+              style={{ background:'var(--ok-bg)', color:'#10b981', border:'1px solid var(--ok-border)' }}>
+              <CheckCheck size={13} /> Reconocer todas ({counts.unack})
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Summary cards */}
@@ -514,7 +530,7 @@ export default function Alerts() {
           { label:'Informativas',  value: counts.info,     color:'#3b82f6' },
         ].map(({ label, value, color }) => (
           <div key={label} className="noc-card p-3">
-            <div className="text-xs" style={{ color:'#6b8bb5' }}>{label}</div>
+            <div className="text-xs" style={{ color:'var(--text-2)' }}>{label}</div>
             <div className="text-2xl font-mono font-bold mt-1" style={{ color }}>{value}</div>
           </div>
         ))}
@@ -522,29 +538,29 @@ export default function Alerts() {
 
       {/* Filter bar */}
       <div className="flex items-center gap-2 flex-wrap">
-        <Filter size={13} style={{ color:'#4b7ab5' }} />
+        <Filter size={13} style={{ color:'var(--muted)' }} />
         {FILTERS.map(f => (
           <button key={f.key} onClick={() => setFilter(f.key as any)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors"
             style={{
-              background: filter === f.key ? `${f.color}20` : '#0d1526',
-              color: filter === f.key ? f.color : '#4b7ab5',
-              border: `1px solid ${filter === f.key ? `${f.color}50` : '#1e3460'}`,
+              background: filter === f.key ? f.bg : 'var(--panel)',
+              color: filter === f.key ? f.color : 'var(--muted)',
+              border: `1px solid ${filter === f.key ? f.border : 'var(--border)'}`,
             }}>
             {f.label}
-            <span className="font-mono px-1 rounded" style={{ background:`${f.color}20`, color: f.color }}>{f.count}</span>
+            <span className="font-mono px-1 rounded" style={{ background: f.bg, color: f.color }}>{f.count}</span>
           </button>
         ))}
       </div>
 
       {/* Alert list */}
       {isLoading ? (
-        <div className="noc-card p-8 text-center text-sm" style={{ color:'#4b7ab5' }}>Cargando alertas...</div>
+        <div className="noc-card p-8 text-center text-sm" style={{ color:'var(--muted)' }}>Cargando alertas...</div>
       ) : filtered.length === 0 ? (
         <div className="noc-card p-12 text-center">
           <CheckCheck size={32} style={{ color:'#10b981', margin:'0 auto 12px' }} />
-          <div className="text-sm font-medium text-white">Sin alertas activas</div>
-          <div className="text-xs mt-1" style={{ color:'#4b7ab5' }}>La red opera normalmente</div>
+          <div className="text-sm font-medium text-[color:var(--text)]">Sin alertas activas</div>
+          <div className="text-xs mt-1" style={{ color:'var(--muted)' }}>La red opera normalmente</div>
         </div>
       ) : (
         <div className="space-y-2">
@@ -552,10 +568,10 @@ export default function Alerts() {
             const s = SEV[a.severity];
             return (
               <div key={a.id}
-                className="noc-card p-4 transition-all duration-200 cursor-pointer hover:scale-[1.005]"
+                className="noc-card p-4 transition-all duration-200 cursor-pointer"
                 style={{
                   opacity: a.acknowledged ? 0.55 : 1,
-                  borderColor: a.acknowledged ? undefined : `${s.color}30`,
+                  borderColor: a.acknowledged ? undefined : s.border,
                 }}
                 onClick={() => setSelected(a)}
               >
@@ -568,15 +584,15 @@ export default function Alerts() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-xs px-2 py-0.5 rounded-full font-mono"
-                            style={{ background: s.bg, color: s.color, border:`1px solid ${s.color}30` }}>
+                            style={{ background: s.bg, color: s.color, border:`1px solid ${s.border}` }}>
                             {s.label}
                           </span>
                           <span className="text-xs px-2 py-0.5 rounded-full"
-                            style={{ background:'#1e346030', color:'#6b8bb5' }}>
+                            style={{ background:'var(--panel-3)', color:'var(--text-2)', border:'1px solid var(--border)' }}>
                             {a.category}
                           </span>
                           {a.building && (
-                            <span className="text-xs" style={{ color:'#374d6b' }}>📍 {a.building}</span>
+                            <span className="text-xs" style={{ color:'var(--dim)' }}>{a.building}</span>
                           )}
                           {a.acknowledged && (
                             <span className="text-xs flex items-center gap-1" style={{ color:'#10b981' }}>
@@ -584,11 +600,11 @@ export default function Alerts() {
                             </span>
                           )}
                         </div>
-                        <div className="font-semibold text-sm text-white mt-1.5">{a.message}</div>
+                        <div className="font-semibold text-sm text-[color:var(--text)] mt-1.5">{a.message}</div>
                         {a.detail && (
-                          <div className="text-xs mt-1 truncate" style={{ color:'#6b8bb5' }}>{a.detail}</div>
+                          <div className="text-xs mt-1 truncate" style={{ color:'var(--text-2)' }}>{a.detail}</div>
                         )}
-                        <div className="flex items-center gap-3 mt-2 text-xs" style={{ color:'#4b7ab5' }}>
+                        <div className="flex items-center gap-3 mt-2 text-xs" style={{ color:'var(--muted)' }}>
                           <span className="font-mono">{a.device}</span>
                           <span>·</span>
                           <span>{formatDistanceToNow(new Date(a.timestamp), { addSuffix:true, locale:es })}</span>
@@ -599,12 +615,12 @@ export default function Alerts() {
                           <button onClick={e => { e.stopPropagation(); ack(a.id); }}
                             disabled={acking === a.id}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors hover:opacity-80"
-                            style={{ background:'#10b98115', color:'#10b981', border:'1px solid #10b98130' }}>
+                            style={{ background:'var(--ok-bg)', color:'#10b981', border:'1px solid var(--ok-border)' }}>
                             <CheckCheck size={12} />
                             {acking === a.id ? '...' : 'Reconocer'}
                           </button>
                         )}
-                        <ChevronRight size={16} style={{ color:'#2a3f6e' }} />
+                        <ChevronRight size={16} style={{ color:'var(--dim)' }} />
                       </div>
                     </div>
                   </div>
