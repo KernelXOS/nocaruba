@@ -13,6 +13,15 @@ function fmtUptime(s: number) {
   return d > 0 ? `${d}d ${h}h` : `${h}h`;
 }
 
+function fmtSpeed(bytes: number) {
+  if (!bytes || bytes <= 0 || isNaN(bytes)) return '0 B/s';
+  const k = 1024;
+  const sizes = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  if (i < 0 || i >= sizes.length) return '0 B/s';
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
 const STATUS_FILTER: { label: string; value: DeviceStatus | 'all' }[] = [
   { label: 'Todos',       value: 'all'     },
   { label: 'En línea',    value: 'online'  },
@@ -209,6 +218,7 @@ export default function AccessPoints() {
             { key: 'name', label: 'Nombre' }, { key: 'serial', label: 'Serial' }, { key: 'model', label: 'Modelo' },
             { key: 'building', label: 'Edificio' }, { key: 'floor', label: 'Piso' }, { key: 'status', label: 'Estado' },
             { key: 'ip', label: 'IP' }, { key: 'macAddress', label: 'MAC' }, { key: 'clients', label: 'Clientes' },
+            { key: 'rxBps', label: 'Descarga Bps' }, { key: 'txBps', label: 'Carga Bps' },
             { key: 'temperature', label: 'Temp °C' }, { key: 'cpuUsage', label: 'CPU %' }, { key: 'firmware', label: 'Firmware' },
           ])}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors hover:border-orange-500"
@@ -234,7 +244,7 @@ export default function AccessPoints() {
             <table className="w-full" style={{ fontSize: 11 }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--panel)' }}>
-                  {['Estado','Nombre','Serial','MAC / IP','Modelo','Edificio','Clientes','Temp','CPU','RAM','Uptime','Firmware','Switch PoE','Acciones']
+                  {['Estado','Nombre','Serial','MAC / IP','Modelo','Edificio','Clientes','Tráfico (Rx/Tx)','Temp','CPU','RAM','Uptime','Firmware','Switch PoE','Acciones']
                     .map(h => <th key={h} className="px-3 py-2.5 text-left font-medium whitespace-nowrap" style={{ color: 'var(--muted)' }}>{h}</th>)}
                 </tr>
               </thead>
@@ -283,6 +293,13 @@ export default function AccessPoints() {
                       <div className="flex items-center gap-1">
                         <Users size={9} style={{ color: 'var(--accent)' }} />
                         <span className="font-mono font-bold" style={{ color: 'var(--accent)' }}>{ap.clients}</span>
+                      </div>
+                    </td>
+
+                    <td className="px-3 py-2 whitespace-nowrap font-mono" style={{ color: 'var(--text-2)', fontSize: 10 }}>
+                      <div className="flex flex-col">
+                        <span className="text-emerald-600 dark:text-emerald-400 font-medium">↓ {fmtSpeed(ap.rxBps)}</span>
+                        <span className="text-orange-600 dark:text-orange-400 font-medium">↑ {fmtSpeed(ap.txBps)}</span>
                       </div>
                     </td>
 
@@ -718,6 +735,20 @@ export default function AccessPoints() {
                 </div>
               </div>
             )}
+
+            <div className="mb-4 p-3 rounded-lg border border-slate-200 dark:border-neutral-900" style={{ background: 'var(--panel)' }}>
+              <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-2)' }}>Velocidad / Tráfico de Red Actual</div>
+              <div className="grid grid-cols-2 gap-4 text-xs font-mono">
+                <div className="flex items-center gap-2">
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">↓ Descarga (Rx):</span>
+                  <span className="text-slate-800 dark:text-slate-200">{fmtSpeed(selected.rxBps)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-orange-600 dark:text-orange-400 font-bold">↑ Carga (Tx):</span>
+                  <span className="text-slate-800 dark:text-slate-200">{fmtSpeed(selected.txBps)}</span>
+                </div>
+              </div>
+            </div>
 
             <div className="space-y-2 mb-4">
               <ThermoBar value={selected.temperature} max={90} warnAt={60} critAt={70} label="Temperatura" unit="°C" />
